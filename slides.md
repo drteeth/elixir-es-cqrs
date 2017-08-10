@@ -1,6 +1,5 @@
 class: center, middle
 
-
 # Intro to Event Sourcing and CQRS...
 ### and some DDD... and stuff...
 
@@ -8,14 +7,18 @@ class: center, middle
 
 * Intro to event sourcing and cqrs.
 * Exploring what ES/CQRS are and how they differ from traditional methods.
-
 ---
 
+class: center, middle
+
 # Ben Moss
-* ben@bitfield.co
-* https://github.com/drteeth
-* http://bitfield.co
-* https://twitter.com/benjamintmoss
+### Bitfield Consulting
+
+[ben@bitfield.co](mailto:ben@bitfield.co)
+
+[github.com/drteeth](https://github.com/drteeth)
+
+[@benjamintmoss](https://twitter.com/benjamintmoss)
 
 ???
 
@@ -26,48 +29,105 @@ Hi I’m Ben Moss,
 
 ---
 
-# The ushe:
-* ACID SQL + 3NF
-* Joins as the answer to anything
-* Indexing to start
-* Decent into dante's caching inferno
-* Copy data for offline analysis
-* Keep Solr/Elastic index up to date (oh hi foreshadowing)
-* Abuse PG because it can do everything. SQL! JSON! GRAPH! GIS
-
-???
-
-Define the traditional methods:	Fully transactional atomic database writes in 3rd normal form, (mega-)joins to answer any question. Indexes and Caching for when things get slow. More recently materialized views. Hint at the hell that is active record callbacks. Copy things out to a reporting database. Find a way to sync an external search engine. Dream about using a graph database because the thought of trying to keep another database in sync sounds hellish. Abuse postgres instead. Postgres: That’s about as far as we can reasonably take things.
+# The status quo
+### What most of us are doing most of the time.
 
 ---
 
-# Motivations:
-Avoid duplication
-1 giant model to answer all questions
-Bloated models
-Mega Joins
-Always reading from the source (maybe with some caching)
+# SQL with ACID transactions
+* Strong consitancy
+* Easy
+* Safe
+* Totally reasonable for smaller projects
+* Locks and contention
+* Doesn't scale that well
 
 ???
 
-   We always reading, a user posts a video once a week, we re-read 4500 times, why not flip that on it’s head and write once, write the read info out
+With SQL we get a solid, sane, general purpose solution. There's lots to like here. Things start to get complicated when it's time to scale. Many known and valid solutions, but I think we can agree at least that things get complicated after we out-grow a single machine.
+
+---
+# 3rd normal form
+* Provide a canonical source for data and relationships
+* Designed to be storage efficient
+* Single monolithic model supports all use cases
+
+???
+
+We store our data in 3NF to avoid data falling out of sync, and when we need a different view of our data we need to re-constitute it from this 3rd normal form.
+
+We attempt to capture all representations and use cases in this single model and this can be the source of complexity. We also often end up with a lowest common denominator where our model struggles to meet all needs.
 
 ---
 
-# Domain Driven Design in 2 minutes
-* Aggregate:
-* Transaction boundary *
-* Responsible for maintaining invariants *
-* May refer to other aggregates by ID only
-* Order + Line Item Example
-* Came from OOP in 2003
+# Indexing
+* Speed up reads by creating alternative indexes behind the scenes
+* Requires domain knowledge
+* Sacrifices write speed
 
 ???
 
-First a crash course in DDD:
-   Aggregate: Transactional isolation boundary. Show example of Order + Line Items
-           Briefly mention that Customer may or may not be part of the aggregate
-           Only reference other aggregates by ID.
+SQL is great, but when all our joins are slow because of sequencial scans, we add indexs to get our performance back up to par. Indexes are alternative representations of our data, optimized for a particular read pattern. Each index adds cost to write time so that strong consistency is always observed.
+
+---
+
+# Decent into dante's caching inferno
+* One of the 2 hard problems in computer science
+* Invalidating is complicated
+* Adds a layer of complexity to the app
+* Orthogonal to business concerns
+
+???
+
+When things get really slow with our apps, we often reach for caching. It often solves the problem but can get really complex in pathological cases and is often used to make up for expensive queries.
+
+---
+
+# Searching
+* Offloaded onto Solr/Elastic
+* Outside of transaction boundary
+* No joins allowed
+* Eventually consistent.
+
+???
+
+We turn to search engines to provide our user with the searching they expect. These live outside of the safety of our database transactions (yes, I know postgres can do it), and we often turn to application level callbacks to keep them in sync with our system of record (or database). It's also worth mentioning that if we want to join records with the main database, we have to do it at the application level.
+
+---
+
+# Reporting
+* Copy & Denormalize
+* Eventual constiency
+* Possibly stale
+* Slow
+
+???
+
+When stakeholders ask for reports, we either join the world in a 15 minute query that brings the server to it's knees or we periodically copy our database into an offline copy that we can work with. Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
+
+---
+
+# Specialized data
+* Graph-friendly structures
+* GIS
+* Etc
+
+???
+
+Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
+
+---
+
+# Recap
+* Avoid duplication
+* 1 model for all use cases
+* Mega Joins
+* Bloated models
+* Always reading
+
+???
+
+I think most of us are read-heavy, and yet we spend tons of time and energy re-reading from our big model. Can we flip that on it's head?
 
 ---
 
@@ -80,8 +140,7 @@ First a crash course in DDD:
 ???
 
 What are ES + CQRS?
-   It’s a simple idea with echoing implications, I don’t want to oversell or pretend it doesn’t have baggage.
-
+It’s a simple idea with echoing implications, I don’t want to oversell or pretend it doesn’t have baggage.
 ---
 
 # Pithy neck-beard answers:
@@ -96,88 +155,457 @@ It’s a left fold over the history of events!
 Greg Young. Reductionist, smart but kind of a dick.
 Accountants don’t use pencils, they use pens.
 Belies the complexity and pitfalls. I understand that people have committed terrible sins in his name, but let’s not pretend this doesn’t change things.
+---
+
+# Quick example 1: Shopping cart
+## TODO: Add, Add, Remove, Checkout
+
+???
+
+* Show state at each step total, count
+* Talk about how the state is derived from the events by the aggregate
+---
+
+# Quick example 2: Bank account
+open, deposit,withdraw, how much?
+
+<!-- Check out @eventideproject's Tweet: https://twitter.com/eventideproject/status/895383797470048256?s=15 -->
+???
+
+* Talk about guarding invariants: deposit before open
 
 ---
 
-   Classic examples: 2)Bank Accounts, 1) Shopping cart
+# Kinda like...
+* Git
+* Database repllication log
+* Journaling file systems
 
+???
 
+---
 
-<!--    Analogies:  -->
-<!-- ES: Git, DB Replication log, journalling file systems, Materialized views -->
+# But first...
+### Domain Driven Design in 2 minutes
+* Aggregate root is a transaction boundary
+* Responsible for maintaining invariants
+* May refer to other aggregates by ID only
+* Order + Line Item Example
+* Came from OOP in 2003
 
-<!-- The pieces: -->
-<!--    Commands -->
-<!--    Command Handlers -->
-<!-- Validations - Simple and fast only - No DB/ No Blocking -->
-<!--        Error or list of events (probably involving the aggregate) -->
+???
 
-<!--    Events -->
-<!--        Facts. -->
-<!--    Projections -->
-<!--        Listen for Facts, combine into useable pieces of state to be read -->
-<!--    Event Store -->
-<!--        Persist  -->
-<!--    Sagas/Process Managers -->
+But First a crash course in DDD:
+Aggregate: Transactional isolation boundary. Show example of Order + Line Items
+Briefly mention that Customer may or may not be part of the aggregate
+Only reference other aggregates by ID.
 
-<!-- Command => handler => Events => Store => Projection ⇐ Query => command … etc -->
+---
 
-<!-- Why? -->
-<!--    Audits -->
-<!--    Read Speed (in mem, straight reads, flat files) -->
-<!--    Write Speed (Append only, no contention) -->
-<!--    Giant, slow join that involves many larger tables that re-does 99% of it’s work everytime it’s run but still somebody has to wait. -->
-<!--    Caching - Not needed? Not *as* needed? No reason you can’t do far future expiration with fingerprinting. You have the source of the events… see what i did there? -->
-<!--    Can enable experiments easily -->
-<!--        New db => new projection in parallel. Does it match the old? No? Fix it. Yes? Cut traffic over to it. -->
-<!--    Scaling -->
-<!--        Multiple read stores -->
-<!--        Projections *should* be independent -->
-<!--    Future needs supported -->
-<!--    Microservices become possible. More than a few people saying that “Querying” a microservice is asking for trouble. Instead watch a stream of events that is interesting to you. -->
-<!--    Brings order to event systems -> -->
-<!--        - Uni-directional flow vs willy-willy flow all over  user -> cmd -> events -> projection -> user -->
-<!--    Resilient -->
+# Aggregate Root
+```elixir
+# Maintain invariants over it's children
+# Order is the root here, LineItems are children
+defmodule Order do
+  use GenServer
 
-<!--    Common misconceptions: (Move this to the end of the talk) -->
-<!--        Server logs => OMG SO FAST - its not like that -->
-<!--        1 per aggregate/transactional boundary: much slower and lower count. -->
-<!--        User god object in normal code => User god stream in ES. It’s a bad idea no matter where you are. Would you model everything in 1 table in SQL?  -->
-<!--        Does not have to by async: -->
-<!--            You can make your existing systems async if you want. Would it be fast? Maybe, would it be harder? Fuck yes. -->
-<!--        Duplication. Yes, but maybe that’s ok. -->
+  def create(id, max_cost) do
+    # create an order row in the db
+  end
 
-<!--    CQRS: Hand in Glove. I conflate the two. -->
+  def add_item(item) do
+    # freak out if we'd blow the budget
+    # create a line_item row in the db
+    # update total cost
+  end
 
-<!-- How? -->
-<!--    DDD Lite (context and aggregates - can also work in oop) -->
-<!--    Elixir => 1 GenServer per process -->
-<!-- Commanded (Next time) -->
-<!-- Events: -->
-<!--        Past tense -->
-<!--        Use to figure out aggregate bounds + follow them -->
-<!--        Mix coarse and fine grained (TeamCheck + Check for each individual) -->
-<!--        Just like REST: Model transaction for transfer between two accounts for ex. -  -->
-<!--    ddd/cqrs/es thou shalt not list: -->
-<!--        Dependent projections -->
-<!--        Read from the write side -->
-<!--    You can opt in slowly, you don’t have to go all in. -->
-<!--        Fire events > recreate your existing models in a new table, compare. -->
-<!--        Don’t have to have your whole system use ES or CQRS. Dial it in. -->
+  def remove_item(item) do
+    # remove a line_item row in the db
+    # update total cost
+  end
+end
+```
 
-<!--    Transactions: Saga/Proc Manager -->
-<!--    This is more about aggregates -->
+???
 
-<!-- Golden hammer? Divine Hammer? -->
-<!--    Unique emails pitfall -->
-<!--    Eventual consistency pitfall -->
-<!--    It’s a whole new ballgame - call everything into question. -->
-<!--    The zealots… the zealots… -->
+Here order maintains the transaction boundary for it's children. The genserver serializes the changes
 
+---
+# Chaos
 
-<!-- Ok, so all in? -->
-<!--    Seems like good for larger projects.You have to give up transaction anyway, may as well get something for it. -->
-<!--    Jury is def out for the smaller (1-box) projects. But on the flip side, you can use synchronous to your advantage here. -->
+```elixir
+# Go behind Order's back
+defmodule Bad do
+  def remove_line_item(line_item_id) do
+    # reach into the db and subvert Order's ability to maintain invariants
+  end
+end
 
+```
 
-<!-- Check out @eventideproject's Tweet: https://twitter.com/eventideproject/status/895383797470048256?s=15 -->
+???
+
+* Non-linear
+* Race conditions
+
+---
+
+# Getting the boundaries right is subjective and tricky
+
+* Customer + Order + LineItem
+* Customer || Order + LineItem
+
+???
+
+Talk about how this can be different depending on use case
+
+---
+
+# The pieces
+* Commands
+* Command Handlers
+* Events
+* EventStore
+* Projections
+* Process Managers / Sagas
+
+???
+
+Let's talk about the main architectural bits that make up the pattern.
+
+---
+
+# Commands
+* Represent some intent
+* Named in the imperative
+* Kinda like form objects
+
+```elixir
+# Open a new account for a user with an initial balance
+%OpenAccount {
+  account_id: 123,
+  initial_balance: 10_000,
+  user_id: 54321
+}
+```
+
+???
+
+---
+
+# Command Handlers
+# TODO: elixir example
+
+* Accept or reject a command
+* {:error, reason}
+* {:ok, [event1, event2]}
+* re-hydrate aggregate from store
+* Simple, fast validations: no blocking i/o
+
+???
+
+* Validations - Simple and fast only - No DB/ No Blocking
+* Error or list of events (probably involving the aggregate)
+* Must be idempotent so they can be retried
+
+---
+# Events
+
+```elixir
+# An account was opened
+%AccountOpened {
+  account_id: 123,
+  initial_balance: 10_000,
+  user_id: 54321
+}
+```
+
+* Facts that have happened
+* Past tense
+* Often paired with commands
+* Will often include metadata like timestamp, user etc
+
+---
+
+# Projections / Event handlers
+# TODO: Elixir example
+
+* Listen for events from many streams
+* Kind of like a SQL view (materialized)
+* Derive new data from aggregate streams
+* combine facts like a JOIN does
+* Often in service of 1 specific view aka denormalized
+* Sync / Async
+
+???
+
+* This is the big win here - You can really run with this idea - more later
+
+---
+# Event store:
+
+Durable storage for your events. It's stores events in a append-only way.
+* Old school: SQL Table
+* Purpose built: EventStore / PumpkinDB
+* Awesome by accident: Kafka/Jocko
+
+???
+
+---
+
+# Process Managers / Sagas
+# TODO: example
+* More on this later/next time but basically:
+* Projection + can emit commands
+
+???
+
+---
+# How it all fits together
+# TODO: diagram of the whole thing
+
+Command => handler => Events => Store => Projection ⇐ Query => command … etc
+
+???
+
+---
+# Why would you want to do this?
+
+* It's can be really fast
+* It can be really scalable
+* You can retrofit features
+
+???
+
+---
+# Audit Trail / Logging
+* Guarnteed to be correct + complete
+* Time-travel debugging
+???
+
+---
+# Reads
+* Very specific to the task (no joining, it's already done)
+* Straight reads from SQL with PK
+* NoQL Doc
+* Search Engine
+* GraphDB
+* Flat files
+* Binary blobs (proto?)
+* Just keep it in memory
+
+???
+
+---
+
+# Writes
+* Very fast
+* Append-only
+* No contention
+* Single responsibility
+* Just the bare facts
+
+???
+---
+# Reduce read burden
+* Eliminate read-time work
+* No joins
+* All data is local
+
+???
+
+Imaging a big 10 table join that you read out of everytime you hit a page. - You are constantly re-joining and doing the same work over.
+* Project the results as the data changes instead
+
+   Giant, slow join that involves many larger tables that re-does 99% of it’s work everytime it’s run but still somebody has to wait.
+---
+
+# Caching
+
+* No longer needed?
+* Not as needed?
+* Just kidding - it is a cache!
+* It's a perfect cache
+
+???
+
+Caching - Not needed? Not *as* needed? No reason you can’t do far future expiration with fingerprinting. You have the source of the events… see what i did there?
+
+---
+
+# Enable experiments
+* New projection
+* Compare to existing in dev
+* Cut over after deploy
+
+???
+
+---
+# Scalling
+* Read projections are incredibly easy to scale
+* Tail the event store => keep your own projections
+* Writes is trickier but possible:
+* Shard keys
+* Split on aggregates
+* Micro... something...
+
+???
+
+Multiple read stores
+
+---
+# Microservices
+* In brief:
+* Instead of services querying each other, just tail and emit events.
+* Very resilient
+* Kafka
+* What can you do with ACID here anyway?
+
+???
+
+Microservices become possible. More than a few people saying that “Querying” a microservice is asking for trouble. Instead watch a stream of events that is interesting to you.
+
+---
+# Resilient
+* So long as event are stored, you can get your state back.
+* Easy to back up
+* Easy to replicate
+???
+---
+# Knee-jerk concerns and misconceptions:
+* Mega stream with 30,000 events/s !@#?
+* => Split into streams with much lower event counts (Think of a user profile, 100s of events/yr? God objects => God streams
+* Re-loading it will take forever?
+* Reloading 1 aggregate from 1000 events is not slow. Snapshot if you must.
+* Disk space? => Yep it takes more, deal with it.
+* Async everything ?!
+* Definately harder, just like everywhere else.
+
+???
+
+Common misconceptions: (Move this to the end of the talk)
+Server logs => OMG SO FAST - its not like that
+1 per aggregate/transactional boundary: much slower and lower count.
+User god object in normal code => User god stream in ES. It’s a bad idea no matter where you are. Would you model everything in 1 table in SQL?
+Does not have to by async:
+You can make your existing systems async if you want. Would it be fast? Maybe, would it be harder? Fuck yes.
+Duplication. Yes, but maybe that’s ok.
+
+---
+
+# How do we do this?
+... in Elixir plz.
+
+???
+
+Haven't talked about elixir much so far
+
+---
+# Elixir
+* GenServer is a great model for an Aggregate.
+* 1 per process
+* Serialize access to a single stream of events
+* In memory cache backed by events
+* Timeout => back to sleep
+* Likewise projections and process managers are well modelled as genservers
+* And command handlers
+
+???
+
+Serialization as transactions.
+---
+# Commanded
+# TODO: url
+Leading library for ES/CQRS in Elixir
+* Next talk
+* Lots to discuss
+
+???
+
+---
+
+Dos:
+* Mix of Coarse and fine grain events:
+* It's ok to overlap
+* A lot like REST, model the missing things. Model a transfer as an aggregate like you might with a REST action. Session etc
+
+???
+
+---
+
+Don'ts:
+* Have projections depend on each other - Prefer duplication
+* Read from the Write side. Wat... Oh here we go...
+
+???
+
+---
+
+# Implementing
+You can go slow:
+Fire events from traditional setup
+Start building out projections
+Replace reads on old model with reads on projected data once it matches
+Replace aggregate state with events
+
+???
+
+You can opt in slowly, you don’t have to go all in. Fire events > recreate your existing models in a new table, compare.
+Don’t have to have your whole system use ES or CQRS.
+Dial it in
+
+---
+
+# Transaction across aggregates
+
+# How?
+* Saga or Process Managers
+* Long-running process
+* Compensating actions from rollback
+  * Refund
+  * Cancel
+  * Gift
+  * Apology
+  * Flag a human
+  * Etc
+
+???
+
+Talk about giving up ACID and 2PC
+
+---
+# The Ugly:
+> "I'm just looking for one divine hammer / I'd bang it all day "
+
+* Very real complexity
+* Did you hear me say Eventual Consistency?
+  Yes to all of those alarm bells
+* It's a whole new ballgame
+  re-learn, throw out all your assumptions right out of the gates, common tasks are made brutal.
+  * Send a flippin' email.
+  * Validate a unique username
+
+* There are compromises but you will question your sanity.
+ Unique emails coliding? => Unlikely!, detect later?!
+
+* The ES/CQRS crowd
+- It's really hard to know which way is up
+- Thou shalt nots
+
+???
+
+---
+
+# Conclusion
+## All in?
+* Good for larger projects
+* bye bye transactions anyway, may as well get something for it
+* Good for smaller/medium? unclear to me still, but you can also scale back your implementation (synchronus, use ACID, etc)
+* Next time: Code + my adventures with commanded
+
+???
+
+Ok, so all in?
+   Seems like good for larger projects.You have to give up transaction anyway, may as well get something for it.
+   Jury is def out for the smaller (1-box) projects. But on the flip side, you can use synchronous to your advantage here.
+---
