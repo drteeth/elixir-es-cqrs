@@ -1,5 +1,13 @@
 class: center, middle
 
+Derrr, "How did i get into this state?"
+Show a big bloated model with many flags
+It's expired, it's active, it's visible, it's published, it's approved
+But I can't imagine how it got into this state
+
+
+---
+
 # Intro to Event Sourcing and CQRS...
 ### and some DDD... and stuff...
 
@@ -371,17 +379,17 @@ Command => handler => Events => Store => Projection ⇐ Query => command … etc
 ---
 # Why would you want to do this?
 
-* It's can be really fast
-* It can be really scalable
-* You can retrofit features
-
 ???
 
 ---
 # Audit Trail / Logging
 * Guarnteed to be correct + complete
 * Time-travel debugging
+show an example of a bloated model that is in a contradictory state.
+
 ???
+
+Talk about the importance of being able to know how a model got into a particular state.
 
 ---
 # Reads
