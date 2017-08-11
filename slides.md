@@ -24,33 +24,37 @@ class: center, middle
 
 Hi I’m Ben Moss,
 * I work as a consultant doing Ruby and Android work at moment at bitfield.co.
-* I have my sites on Elixir for future work.
+* I have my sights on Elixir for future work.
 * I've done a lot of things in my past, including c# where a lot of these ideas originated.
 
 ---
 
 # The status quo
 ### What most of us are doing most of the time.
-TODO: Tried and True venn diagram
+![Tried and True](images/tried_and_true.svg)
+
 ---
 
 # SQL with ACID transactions
-* Strong consistency
-* Easy
-* Safe
-* Totally reasonable for smaller projects
-* Locks and contention
-* Doesn't scale that well
-* Replication logs...
+* + Strong consistency
+* + Easy
+* + Safe
+* + Totally reasonable for smaller projects
+* - Locks and contention
+* - Doesn't scale that well
+
+Replication logs... hmmm...
 
 ![Contention](https://cdn-images-1.medium.com/max/640/0*9QCp-MLkSuTFd3m6.jpg)
 
 ???
 
 * With SQL we get a solid, sane, general purpose solution.
+* Strong consistency, it's easy, it's safe and totally reasonable for smaller projects
 * Things start to get complicated when it's time to scale.
-* Things get complicated after we out-grow a single machine.
-* We scale with sharding and replication logs.
+* Especially when we out-grow a single machine
+* We scale by sharding
+* We scale by using leader/follower replication
 * Hang on to that idea.
 
 ---
@@ -72,16 +76,25 @@ We attempt to capture all representations and use cases in this single model and
 
 # Indexing
 * Speed up reads by creating alternative indexes behind the scenes
+* Alternative structure
 * Optimized for particular read patterns
 * Requires domain knowledge
 * Sacrifices write speed
 
 ???
 
-* SQL is great, but when all our joins are slow because of sequencial scans, we add indexs to get our performance back.
-* Indexes are alternative representations of our data, optimized for a particular read pattern.
-* They require domain knowledge to implement
-* Each index adds cost to write time so that strong consistency is always observed.
+# Indexing
+
+Sequentially reading from source tables is slow, so we use indexing
+
+* Speed up reads by creating alternative indexes behind the scenes
+* Alternative structure
+  * Separate map of the documents based on some field
+* Optimized for particular read patterns
+* Requires domain knowledge
+  * UI design informs which indexes are important
+* Sacrifices write speed
+  * Each index adds cost to write time so that strong consistency is always observed.
 
 Hang on to the idea of multiple, domain-informed representations
 
@@ -95,7 +108,8 @@ Hang on to the idea of multiple, domain-informed representations
 
 ???
 
-When things get really slow with our apps, we often reach for caching. It often solves the problem but can get really complex in pathological cases and is often used to make up for expensive queries.
+* When things get really slow with our apps, we often reach for caching.
+* It often solves the problem but can get really complex in pathological cases and is often used to make up for expensive queries.
 
 ---
 
@@ -114,8 +128,9 @@ When things get really slow with our apps, we often reach for caching. It often 
 
 ---
 
-# Reporting
-* Copy & Denormalize
+# Reporting & Analyics
+* Batch model
+* Often denormalized
 * Eventual constiency
 * Possibly stale
 * Slow
@@ -135,20 +150,6 @@ Either way, we often spend 95% of the time and energy spent going over the same 
 ???
 
 Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
-
----
-
-# Recap
-* Avoid duplication
-* 1 model for all use cases
-* Mega Joins
-* Bloated models
-* Always reading
-
-???
-
-* I think most of us are read-heavy, and yet we spend tons of time and energy re-reading from our big model.
-* Can we flip that on it's head?
 
 ---
 
@@ -190,16 +191,20 @@ new_state = List.foldl(events, initial_state, fn (e, state) ->
 * Events are immutable
 * Generate compensating ones to correct mistakes
 
+???
+
+Simlar to accounting ledgers, events never change. new facts are added the replace older ones.
+
 ---
 
 # Quick example 1: Shopping cart
 
 ```elixir
-AddedToCart("apples")         # ["apples"]
-AddedToCart("pears")          # ["apples", "pears"]
-AddedToCart("pretzels")       # ["apples, "pears", "pretzels"]
-RemovedFromCart("pretzels")   # ["apples", "pears"]
-CartCheckout()                # []
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+%RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
+%CartCheckout{}                       # []
 ```
 
 * State is derived from applying events
@@ -208,8 +213,9 @@ CartCheckout()                # []
 
 ???
 
-* Simplified model
-* The state of the cart is a product of apply each event in sequence
+* Simplified model of a shopping cart
+* Add apples, pears and pretzels, then realized that pretzels are nasty and took them out
+* The state of the cart is the product of apply each event in sequence
 * Cart state is derived from the events
 * Current state is lossy
 * They bought apples and pears, but considered buying the pretzels
@@ -219,14 +225,16 @@ CartCheckout()                # []
 # Quick example 2: Bank account
 
 ```elixir
-AccountOpened(123, 100)
-Deposited(123, 20)
-AccountOpened(456, 50)
-Withdrew(123, 80)
-Withdrew(456, 20)
+# Events
+%AccountOpened{ id: 1, balance: 100 }
+%Deposited{ id: 1, amount: 20 }
+%AccountOpened{ id: 2, amount: 50 }
+%Withdrew{ id: 1, amount: 80 }
+%Withdrew{ id: 2, amount: 20 }
 
-Account 123 has $40
-Account 456 has $30
+# Current state
+%Account{ id: 1, balance: 40 }
+%Account{ id: 2, balance: 30 }
 ```
 
 * Events have already happened
@@ -277,6 +285,9 @@ Let's talk about the main architectural bits that make up the pattern.
 ```
 
 ???
+
+Typically IDs are passed in
+UUIDs are a popular choice for this reason
 
 ---
 
@@ -330,6 +341,8 @@ end
 
 ???
 
+Command handlers accept commands and turn them into events
+
 * Validations - Simple and fast only - No DB/ No Blocking
 * Error or list of events (probably involving the aggregate)
 * Must be idempotent so they can be retried
@@ -341,10 +354,10 @@ end
 * Listen for events from many streams
 * Kind of like a SQL view (materialized)
 * Derive new data from aggregate streams
-* combine facts like a JOIN does
-* Often in service of 1 specific view
+* Combine facts like a Join does
+* Often in service of a specific view
 * Denormalized
-* Can be Sync / Async
+* Can be Sync or Async
 
 ---
 
@@ -377,7 +390,8 @@ id | customer_name | balance | status
 ---
 
 ```elixir
-defmodule CustomerView do
+defmodule AccountBalanceProjection do
+
   def handle(&CustomerRegistered{} = e) do
    database.upsert(e.customer_id, name: e.name, balance: 0)
   end
@@ -412,6 +426,8 @@ end
 
 ???
 
+* This database is logically or physically separate from the command store.
+* Single threaded - you are free to do normal read/write SQL stuff here.
 * This is the big win here - You can really run with this idea - more later
 
 ---
@@ -431,9 +447,17 @@ Durable storage for your events. It's stores events in a append-only way.
 ---
 
 # Process Managers / Sagas
-* More on this later/next time but basically:
+* Used to handle business processes
+  * Sending email
+  * Long-running processes
 * Projection + can emit commands
 * Guard side effects against replays
+* Lots more to talk about here.
+
+
+---
+
+# A Process manager
 
 ```elixir
 defmodule Welcomer do
@@ -463,13 +487,26 @@ end
 
 ???
 
+* The events have already happened
+* Emit new commands to compensate
+* Perform side effects
+* Beware of replays and side effects
+
 ---
 # How it all fits together
-# TODO: diagram of the whole thing
 
-Command => handler => Events => Store => Projection ⇐ Query => command … etc
+![Event Sourcing Diagram](images/event_sourcing_overview.svg)
 
 ???
+
+* A Command is sent
+* The command handler accepts it an generates one or more events
+* These events are stored in the store
+* The events are published
+* A Projection subscribes to one or more events and maintains a projection
+* Queries read from projections
+* Process managers also subscribe to events
+* And they may feed new commands back into the system
 
 ---
 
@@ -580,13 +617,15 @@ Talk about how this can be different depending on use case
 * Guarnteed to be correct + complete
 
 ```elixir
-# How did this happen??
+# How did we get here??
 %GiantModel {
- expired: true,
- active: true,
- visible: false,
- published: true,
- approved: false
+  ...
+  expired: true,
+  active: true,
+  visible: false,
+  published: true,
+  approved: false
+  ...
 }
 ```
 
@@ -619,15 +658,16 @@ unspace.people_inside => []
 It's easy to see the state of the system at a particular point in history.
 
 ---
-# Reads
-* Very specific to the task (no joining, it's already done)
-* Straight reads from SQL with PK
-* NoSQL Document
-* Search Engine query
-* GraphDB query
-* Flat text files (Look Ma' straight from Nginx)
-* Binary blobs (generated images, serialized protobuf, etc)
-* Just keep it in memory - Skip the disk
+# Fast and simple reads
+* Tailored to the use case
+* Easy, fast reads
+  * Straight reads from SQL with PK
+  * NoSQL Document
+  * Search Engine query
+  * GraphDB query
+  * Flat text files (Look Ma' straight from Nginx)
+  * Binary blobs (generated images, serialized protobuf, etc)
+  * Just keep it in memory - Skip the disk
 
 ???
 
@@ -638,13 +678,13 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 
 ---
 
-# Writes
-* Very fast
+# Fast writes
 * Append-only
 * No contention
-* Single responsibility
-* Just the bare facts
-
+* Just the facts
+* Defer expensive work until we've accepted the write
+  * Allows the system to move on to the next write
+  * Allows the caller if they want
 ???
 
 ---
@@ -722,11 +762,10 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 
 ### Isn't re-loading all of the events from the beginning of time slow?
 * Just the events for 1 aggregate
-* Tends to be in the < 1000 category
-* This is fine
+* Tends to be in the < 1000 range
 * Snapshots are an option
-* Many you have the wrong aggregate boundary
-* God streams (Don't hang everything off of user)
+* Maybe you have the wrong aggregate boundary
+* Avoid God streams (Don't hang everything off of user)
 
 ---
 
@@ -747,12 +786,15 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 
 # Elixir
 * GenServer is a great model for an Aggregate.
-* 1 per process
-* Serialize access to a single stream of events
-* In memory cache backed by events
-* Timeout => Stop
-* Likewise projections and process managers are well modelled as genservers
-* And command handlers
+  * 1 per process
+  * Serialize access to a single stream of events
+  * In memory cache backed by events
+  * Timeout => Stop
+* Projections too
+* And Process Managers
+* And Command Handlers
+
+Great tools for managing concurrency and serialization
 
 ???
 
@@ -760,8 +802,9 @@ Serialization as transactions.
 
 ---
 # Commanded
-# TODO: url
-Leading library for ES/CQRS in Elixir
+### [github.com/slashdotdash/commanded](https://github.com/slashdotdash/commanded)
+
+* Leading library for ES/CQRS in Elixir
 * Next talk
 * Lots to discuss
 
@@ -801,16 +844,30 @@ Dial it in
 
 ---
 
-# Transaction across aggregates
+# Coordinating multiple aggregates
 
-# How?
+### Q: Serialization is not guaranteed across aggregates, so how do we handle 2 aggregates?
+
+### A: Model the interaction between the two as it's own aggregate
+That gets us our linear access to the events involved and we can issue commands against the other aggregates
+
+```elixir
+%FundTransferRequested{ transaction_id: 1, from: 123, to: 456, amount: 100 }
+%Withdrew{ account_id: 123, transaction_id: 1, amount: 100 }
+%Deposited{ account_id: 456, transaction_id: 1, amount: 100 }
+%FundTransferCompleted { transaction_id: 1 }
+```
+
+If something goes wrong, you have a linear history of what happened and can rollback by issue compensating
+events.
+
 * Saga or Process Managers
 * Long-running process
 * Compensating actions from rollback
   * Refund
   * Cancel
   * Gift
-  * Apology
+  * Apologize
   * Flag a human
   * Etc
 
