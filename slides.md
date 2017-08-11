@@ -164,7 +164,7 @@ Similar to the Searching example, a graph or GIS database might be a better solu
 * Rebuild state from events
 
 ### Command Query Responsibility Segregation:
-* Separate Read and Write logic.
+* Separate Reads from Writes
 
 Simple ideas with big implications...
 
@@ -172,14 +172,28 @@ Simple ideas with big implications...
 
 ---
 
-# Pithy neck-beard answers:
-* It’s a left fold over the history of events!
-* Accountants don’t use pencils, they use pens.
+# Pithy neck-beard answers
+> "It’s a left fold over the history of events!"
+
+```elixir
+new_state = List.foldl(events, initial_state, fn (e, state) ->
+              apply_event(e, to: state)
+            end)
+```
 
 ???
 
 * Greg Young. Reductionist, smart but kind of a dick.
 * Belies the complexity and pitfalls.
+
+---
+
+# Pithy neck-beard answers
+
+> "Accountants don’t use pencils, they use pens."
+
+* Events are immutable
+* Generate compensating ones to correct mistakes
 
 ---
 
@@ -272,6 +286,24 @@ Let's talk about the main architectural bits that make up the pattern.
 
 ---
 
+# Events
+
+* Facts that have happened
+* Past tense
+* Often paired with commands
+* Will often include metadata like timestamp, user etc
+
+```elixir
+# An account was opened
+%AccountOpened {
+  account_id: 123,
+  initial_balance: 10_000,
+  user_id: 54321
+}
+```
+
+---
+
 # Command Handlers
 # TODO: elixir example
 
@@ -286,23 +318,6 @@ Let's talk about the main architectural bits that make up the pattern.
 * Validations - Simple and fast only - No DB/ No Blocking
 * Error or list of events (probably involving the aggregate)
 * Must be idempotent so they can be retried
-
----
-# Events
-
-```elixir
-# An account was opened
-%AccountOpened {
-  account_id: 123,
-  initial_balance: 10_000,
-  user_id: 54321
-}
-```
-
-* Facts that have happened
-* Past tense
-* Often paired with commands
-* Will often include metadata like timestamp, user etc
 
 ---
 
@@ -351,25 +366,26 @@ Command => handler => Events => Store => Projection ⇐ Query => command … etc
 
 # Domain Driven Design in 2 minutes
 
-```elixir
-%Order {
-  # Reference to another aggregate,
-  # Customer maintains it's own transaction isolation
-  customer_id: 123,
-
-  # Order's responsibility:
-  items: [
-    %Item{ item_id: 1, price: 100 },
-    %Item{ item_id: 2, price: 200 },
-  ]
-}
-```
-
 * Came from OOP in 2003
 * Order and Customer are Aggregate Roots
 * Item is not
 * May refer to other aggregates by ID only
 
+```elixir
+%Customer {
+  id: 123,
+  name: "Ben Moss",
+}
+
+%Order {
+  customer_id: 123, # Reference to another aggregate,
+  items: [
+    %Item{ item_id: 1, price: 100 },
+    %Item{ item_id: 2, price: 200 },
+  ]
+}
+
+```
 ???
 
 * Detour to talk about DDD
@@ -381,6 +397,12 @@ Command => handler => Events => Store => Projection ⇐ Query => command … etc
 ---
 
 # Aggregate Root
+
+* Control access to children
+* Transaction boundary
+* Maintain invariants
+* Serialize access with GenServer
+
 ```elixir
 # Maintain invariants over it's children
 # Order is the root here, LineItems are children
@@ -403,11 +425,6 @@ defmodule Order do
   end
 end
 ```
-
-* Control access to children
-* Transaction boundary
-* Maintain invariants
-* Serialize access with GenServer
 
 ???
 
@@ -443,7 +460,7 @@ end
 Talk about how this can be different depending on use case
 
 ---
----
+
 # Why would you want to do this?
 
 ???
@@ -452,7 +469,7 @@ Talk about how this can be different depending on use case
 # Audit Trail / Logging
 * Guarnteed to be correct + complete
 * Time-travel debugging
-show an example of a bloated model that is in a contradictory state.
+* TODO: show an example of a bloated model that is in a contradictory state.
 
 ???
 
@@ -599,7 +616,7 @@ Leading library for ES/CQRS in Elixir
 
 ---
 
-Dos:
+# Dos:
 * Mix of Coarse and fine grain events:
 * It's ok to overlap
 * A lot like REST, model the missing things. Model a transfer as an aggregate like you might with a REST action. Session etc
@@ -608,7 +625,7 @@ Dos:
 
 ---
 
-Don'ts:
+# Don'ts:
 * Have projections depend on each other - Prefer duplication
 * Read from the Write side. Wat... Oh here we go...
 
@@ -617,11 +634,11 @@ Don'ts:
 ---
 
 # Implementing
-You can go slow:
-Fire events from traditional setup
-Start building out projections
-Replace reads on old model with reads on projected data once it matches
-Replace aggregate state with events
+* You can go slow:
+* Fire events from traditional setup
+* Start building out projections
+* Replace reads on old model with reads on projected data once it matches
+* Replace aggregate state with events
 
 ???
 
