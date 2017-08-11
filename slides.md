@@ -31,17 +31,17 @@ Hi I’m Ben Moss,
 
 # The status quo
 ### What most of us are doing most of the time.
-![Tried and True](images/tried_and_true.svg)
+![Tried and True](images/tried_and_true_venn.svg)
 
 ---
 
 # SQL with ACID transactions
-* + Strong consistency
-* + Easy
-* + Safe
-* + Totally reasonable for smaller projects
-* - Locks and contention
-* - Doesn't scale that well
+* Strong consistency
+* Easy
+* Safe
+* Totally reasonable for smaller projects
+* Locks and contention
+* Doesn't scale that well
 
 Replication logs... hmmm...
 
@@ -507,6 +507,9 @@ end
 * Queries read from projections
 * Process managers also subscribe to events
 * And they may feed new commands back into the system
+
+#### Blue: Write-side
+#### Green: Read-side
 
 ---
 
