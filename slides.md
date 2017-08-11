@@ -158,10 +158,15 @@ Similar to the Searching example, a graph or GIS database might be a better solu
 ---
 
 # What are ES and CQRS?
+
+### Event sourcing:
 * Store events instead of state.
 * Rebuild state from events
-* Simple ideas with big implications
-* CQRS: Separate Read and Write logic.
+
+### Command Query Responsibility Segregation:
+* Separate Read and Write logic.
+
+Simple ideas with big implications...
 
 ???
 
