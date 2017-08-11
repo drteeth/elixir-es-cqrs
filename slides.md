@@ -1,13 +1,5 @@
 class: center, middle
 
-Derrr, "How did i get into this state?"
-Show a big bloated model with many flags
-It's expired, it's active, it's visible, it's published, it's approved
-But I can't imagine how it got into this state
-
-
----
-
 # Intro to Event Sourcing and CQRS...
 ### and some DDD... and stuff...
 
@@ -39,7 +31,7 @@ Hi I’m Ben Moss,
 
 # The status quo
 ### What most of us are doing most of the time.
-
+TODO: Tried and True venn diagram
 ---
 
 # SQL with ACID transactions
@@ -50,6 +42,8 @@ Hi I’m Ben Moss,
 * Locks and contention
 * Doesn't scale that well
 * Replication logs...
+
+![Contention](https://cdn-images-1.medium.com/max/640/0*9QCp-MLkSuTFd3m6.jpg)
 
 ???
 
@@ -65,7 +59,8 @@ Hi I’m Ben Moss,
 * Re-combine those into the representations we need
 * Designed to be storage efficient
 * Often a single monolithic model supports all use cases
-# TODO add giant ERD pic
+
+![Giant ERD](images/big-erd.png)
 
 ???
 
@@ -207,7 +202,7 @@ RemovedFromCart("pretzels")   # ["apples", "pears"]
 CartCheckout()                # []
 ```
 
-* State is derived from apply events
+* State is derived from applying events
 * Current state is lossy
 * Events have the full picture
 
@@ -225,17 +220,17 @@ CartCheckout()                # []
 
 ```elixir
 AccountOpened(123, 100)
-AccountOpened(456, 50)
 Deposited(123, 20)
+AccountOpened(456, 50)
 Withdrew(123, 80)
 Withdrew(456, 20)
 
-123 => 40
-456 => 30
+Account 123 has $40
+Account 456 has $30
 ```
 
 * Events have already happened
-* Events are interleaved
+* Events are interleaved in time
 
 ???
 
@@ -269,16 +264,15 @@ Let's talk about the main architectural bits that make up the pattern.
 ---
 
 # Commands
-* Represent some intent
+* Represents some intent
 * Named in the imperative
-* Kinda like form objects
 
 ```elixir
 # Open a new account for a user with an initial balance
 %OpenAccount {
   account_id: 123,
-  initial_balance: 10_000,
   user_id: 54321
+  initial_balance: 10_000,
 }
 ```
 
@@ -288,30 +282,51 @@ Let's talk about the main architectural bits that make up the pattern.
 
 # Events
 
-* Facts that have happened
-* Past tense
+* Represents a fact that has happened
+* Named in past tense
 * Often paired with commands
-* Will often include metadata like timestamp, user etc
 
 ```elixir
-# An account was opened
+# An account was opened for a user with an initial balance
 %AccountOpened {
   account_id: 123,
   initial_balance: 10_000,
-  user_id: 54321
+  user_id: 54321,
+  date: ~N[2017-08-24 18:00:00],
 }
 ```
 
 ---
 
 # Command Handlers
-# TODO: elixir example
 
+* Hydrate aggregate from store
 * Accept or reject a command
-* {:error, reason}
-* {:ok, [event1, event2]}
-* re-hydrate aggregate from store
-* Simple, fast validations: no blocking i/o
+* Simple, fast validations only
+* Idempotent
+
+```elixir
+defmodule AccountHandler do
+  def handle(%OpenAccount{} = command) do
+    # Load the events for this account from the store
+    stream = "account_#{command.account_id}"
+    events = event_store.load_events(stream)
+
+    # replay the events (re-hydrate the aggregate)
+    account = List.foldl(events, %Account{}, &Account.apply/2)
+
+    # now use it to validate the incoming command
+    if account.open do
+      {:error, :account_already_open}
+    else
+      # return 0, 1, or many events
+      event = %AccountOpened { account_id: 123 }
+      {:ok, [event]}
+    end
+  end
+  def handle(%Deposit{} = command), do: []
+end
+```
 
 ???
 
@@ -322,14 +337,78 @@ Let's talk about the main architectural bits that make up the pattern.
 ---
 
 # Projections / Event handlers
-# TODO: Elixir example
 
 * Listen for events from many streams
 * Kind of like a SQL view (materialized)
 * Derive new data from aggregate streams
 * combine facts like a JOIN does
-* Often in service of 1 specific view aka denormalized
-* Sync / Async
+* Often in service of 1 specific view
+* Denormalized
+* Can be Sync / Async
+
+---
+
+# Combine streams to create views
+
+
+```elixir
+%CustomerRegistered { customer_id: 1, name: "Lola Gheda" }
+%AccountOpened { account_id: 1, customer_id: 1 }
+%Deposited { account_id: 1, amount: 200 }
+
+%CustomerRegistered { customer_id: 2, name: "Mattia Gheda" }
+%AccountOpened { account_id: 2, customer_id: 2 }
+%Deposited { account_id: 2, amount: 100 }
+%Withdrew { account_id: 2, amount: 100 }
+```
+
+### Customer roll-up
+id | customer_name | balance | status
+-- | ------------- | ------- | --------
+1 | Lola Gheda | $200.00 | Good dog
+2 | Mattia Gheda | $0.00 | Broke
+
+???
+
+* Inserting and updating a SQL table in this example
+* Denormalize data for specific use cases
+* Note that here you can infer data such as the status column
+
+---
+
+```elixir
+defmodule CustomerView do
+  def handle(&CustomerRegistered{} = e) do
+   database.upsert(e.customer_id, name: e.name, balance: 0)
+  end
+
+  def handle(%AccountOpened{} = e) do
+   database.upsert(e.customer_id, balance: 0)
+  end
+
+  def handle(%Deposited{} = e) do
+    row = db.find(e.customer_id)
+    new_balance = row.balance + e.amount
+    database.upsert(e.customer_id, balance: new_balance,
+      status: judge(new_balance))
+  end
+
+  def handle(&Withdrew{} = e) do
+    row = db.find(e.customer_id)
+    new_balance = row.balance - e.amount
+    database.upsert(e.customer_id, balance: new_balance,
+      status: judge(new_balance))
+  end
+
+  def handle(_), do: :ok
+
+  defp judge(balance) do
+    # Judge Mattia harshly...
+    ...
+  end
+
+end
+```
 
 ???
 
@@ -343,14 +422,44 @@ Durable storage for your events. It's stores events in a append-only way.
 * Purpose built: EventStore / PumpkinDB
 * Awesome by accident: Kafka/Jocko
 
+
+* a1, a2, a3, a4, ... aN
+* b1, b2, b3, b4, ... bN
+
 ???
 
 ---
 
 # Process Managers / Sagas
-# TODO: example
 * More on this later/next time but basically:
 * Projection + can emit commands
+* Guard side effects against replays
+
+```elixir
+defmodule Welcomer do
+
+  def handle(%CustomerRegistered{} = e) do
+    case db.find_account_by(email: e.email) do
+      account -> merge(e, account)
+      nil -> send_welcome_email(e)
+    end
+  end
+
+  defp merge(e, account) do
+    # return a command
+    [%MergeAccount {
+      existing_account_id: account.id,
+      new_account_id: e.account_id,
+      ...
+    }]
+  end
+
+  defp send_welcome_email(e) do
+    mailer.send_welcome_email(e.email) # Don't do this on replay!
+    [] # no commands
+  end
+end
+```
 
 ???
 
@@ -467,26 +576,65 @@ Talk about how this can be different depending on use case
 
 ---
 # Audit Trail / Logging
+* How did my model get into this state?
 * Guarnteed to be correct + complete
-* Time-travel debugging
-* TODO: show an example of a bloated model that is in a contradictory state.
+
+```elixir
+# How did this happen??
+%GiantModel {
+ expired: true,
+ active: true,
+ visible: false,
+ published: true,
+ approved: false
+}
+```
 
 ???
 
 Talk about the importance of being able to know how a model got into a particular state.
 
 ---
+# Time-travel debugging
+
+
+```elixir
+date = ~D[2013-08-14]
+
+unspace = Office.hydrate(until: date)
+unspace.status => :lounge_mode_in_effect
+unspace.people_inside => [:eric]
+
+unspace = unspace |> Office.apply(%PinballRelatedIncidentHappened{})
+unspace.status => :literally_on_fire
+unspace.people_inside => [:eric]
+
+unspace = unspace |> Office.apply(%BossModeEngaged{hero: :eric})
+unspace.status => :even_more_on_fire
+unspace.people_inside => []
+```
+
+???
+
+It's easy to see the state of the system at a particular point in history.
+
+---
 # Reads
 * Very specific to the task (no joining, it's already done)
 * Straight reads from SQL with PK
-* NoQL Doc
-* Search Engine
-* GraphDB
-* Flat files
-* Binary blobs (proto?)
-* Just keep it in memory
+* NoSQL Document
+* Search Engine query
+* GraphDB query
+* Flat text files (Look Ma' straight from Nginx)
+* Binary blobs (generated images, serialized protobuf, etc)
+* Just keep it in memory - Skip the disk
 
 ???
+
+Imaging a big 10 table join that you read out of everytime you hit a page. - You are constantly re-joining and doing the same work over.
+* Project the results as the data changes instead
+
+Giant, slow join that involves many larger tables that re-does 99% of it’s work everytime it’s run but still somebody has to wait.
 
 ---
 
@@ -498,113 +646,118 @@ Talk about the importance of being able to know how a model got into a particula
 * Just the bare facts
 
 ???
+
 ---
-# Reduce read burden
-* Eliminate read-time work
-* No joins
-* All data is local
-
-???
-
-Imaging a big 10 table join that you read out of everytime you hit a page. - You are constantly re-joining and doing the same work over.
-* Project the results as the data changes instead
-
-   Giant, slow join that involves many larger tables that re-does 99% of it’s work everytime it’s run but still somebody has to wait.
----
-
 # Caching
 
 * No longer needed?
+
+---
+# Caching
+
 * Not as needed?
+
+---
+# Caching
+
+* Just kidding - it is a cache!
+
+---
+# Caching
+
 * Just kidding - it is a cache!
 * It's a perfect cache
-
-???
-
-Caching - Not needed? Not *as* needed? No reason you can’t do far future expiration with fingerprinting. You have the source of the events… see what i did there?
 
 ---
 
 # Enable experiments
-* New projection
-* Compare to existing in dev
-* Cut over after deploy
-
-???
+* New projections can up without affecting others
 
 ---
 # Scalling
-* Read projections are incredibly easy to scale
-* Tail the event store => keep your own projections
-* Writes is trickier but possible:
-* Shard keys
-* Split on aggregates
-* Micro... something...
+
+### Read projections are easy to scale:
+* They depend on a stream of immutable events
+* Just bring up new instances of the projections
+* They will always come up with the same answer given
+
+### Writes are harder to scale, but still possible
+* Shard on aggregate type
+* Shard on aggregate id
 
 ???
 
-Multiple read stores
+* Read and write can scale independantly
+* Replicating read stores
+* Replicating write stores
 
 ---
-# Microservices
-* In brief:
+# Microservices in brief
+* Pretty good fit here.
 * Instead of services querying each other, just tail and emit events.
 * Very resilient
-* Kafka
-* What can you do with ACID here anyway?
+* Events can be shared with an event bus (Kafka is popular in the space)
+* You are giving up consistency anyway
 
 ???
-
-Microservices become possible. More than a few people saying that “Querying” a microservice is asking for trouble. Instead watch a stream of events that is interesting to you.
 
 ---
 # Resilient
 * So long as event are stored, you can get your state back.
 * Easy to back up
 * Easy to replicate
+
 ???
+
 ---
 # Knee-jerk concerns and misconceptions:
-* Mega stream with 30,000 events/s !@#?
-* => Split into streams with much lower event counts (Think of a user profile, 100s of events/yr? God objects => God streams
-* Re-loading it will take forever?
-* Reloading 1 aggregate from 1000 events is not slow. Snapshot if you must.
-* Disk space? => Yep it takes more, deal with it.
-* Async everything ?!
-* Definately harder, just like everywhere else.
 
-???
+---
 
-Common misconceptions: (Move this to the end of the talk)
-Server logs => OMG SO FAST - its not like that
-1 per aggregate/transactional boundary: much slower and lower count.
-User god object in normal code => User god stream in ES. It’s a bad idea no matter where you are. Would you model everything in 1 table in SQL?
-Does not have to by async:
-You can make your existing systems async if you want. Would it be fast? Maybe, would it be harder? Fuck yes.
-Duplication. Yes, but maybe that’s ok.
+### Won't there be like a bajillion events per second?
+* People always think about their webserver logs. It's slower than that
+* But it can still be a lot.
+
+---
+
+### Isn't re-loading all of the events from the beginning of time slow?
+* Just the events for 1 aggregate
+* Tends to be in the < 1000 category
+* This is fine
+* Snapshots are an option
+* Many you have the wrong aggregate boundary
+* God streams (Don't hang everything off of user)
+
+---
+
+### Doesn't this take more disk space?
+* Yep. Deal with it, disk is cheap.
+
+---
+
+### Doesn't async make everything hard?
+* It suuuure can. Not a requirement.
+* Totally reasonable to mix sync and async
 
 ---
 
 # How do we do this?
-... in Elixir plz.
-
-???
-
-Haven't talked about elixir much so far
 
 ---
+
 # Elixir
 * GenServer is a great model for an Aggregate.
 * 1 per process
 * Serialize access to a single stream of events
 * In memory cache backed by events
-* Timeout => back to sleep
+* Timeout => Stop
 * Likewise projections and process managers are well modelled as genservers
 * And command handlers
 
 ???
 
 Serialization as transactions.
+
 ---
 # Commanded
 # TODO: url
@@ -698,6 +851,7 @@ Talk about giving up ACID and 2PC
 ???
 
 Ok, so all in?
-   Seems like good for larger projects.You have to give up transaction anyway, may as well get something for it.
-   Jury is def out for the smaller (1-box) projects. But on the flip side, you can use synchronous to your advantage here.
----
+
+Seems like good for larger projects.You have to give up transaction anyway, may as well get something for it.
+
+Jury is def out for the smaller (1-box) projects. But on the flip side, you can use synchronous to your advantage here.
