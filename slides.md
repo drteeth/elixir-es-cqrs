@@ -43,22 +43,29 @@ Hi I’m Ben Moss,
 ---
 
 # SQL with ACID transactions
-* Strong consitancy
+* Strong consistency
 * Easy
 * Safe
 * Totally reasonable for smaller projects
 * Locks and contention
 * Doesn't scale that well
+* Replication logs...
 
 ???
 
-With SQL we get a solid, sane, general purpose solution. There's lots to like here. Things start to get complicated when it's time to scale. Many known and valid solutions, but I think we can agree at least that things get complicated after we out-grow a single machine.
+* With SQL we get a solid, sane, general purpose solution.
+* Things start to get complicated when it's time to scale.
+* Things get complicated after we out-grow a single machine.
+* We scale with sharding and replication logs.
+* Hang on to that idea.
 
 ---
 # 3rd normal form
 * Provide a canonical source for data and relationships
+* Re-combine those into the representations we need
 * Designed to be storage efficient
-* Single monolithic model supports all use cases
+* Often a single monolithic model supports all use cases
+# TODO add giant ERD pic
 
 ???
 
@@ -70,12 +77,18 @@ We attempt to capture all representations and use cases in this single model and
 
 # Indexing
 * Speed up reads by creating alternative indexes behind the scenes
+* Optimized for particular read patterns
 * Requires domain knowledge
 * Sacrifices write speed
 
 ???
 
-SQL is great, but when all our joins are slow because of sequencial scans, we add indexs to get our performance back up to par. Indexes are alternative representations of our data, optimized for a particular read pattern. Each index adds cost to write time so that strong consistency is always observed.
+* SQL is great, but when all our joins are slow because of sequencial scans, we add indexs to get our performance back.
+* Indexes are alternative representations of our data, optimized for a particular read pattern.
+* They require domain knowledge to implement
+* Each index adds cost to write time so that strong consistency is always observed.
+
+Hang on to the idea of multiple, domain-informed representations
 
 ---
 
@@ -99,7 +112,10 @@ When things get really slow with our apps, we often reach for caching. It often 
 
 ???
 
-We turn to search engines to provide our user with the searching they expect. These live outside of the safety of our database transactions (yes, I know postgres can do it), and we often turn to application level callbacks to keep them in sync with our system of record (or database). It's also worth mentioning that if we want to join records with the main database, we have to do it at the application level.
+* We turn to search engines to provide our user with the searching they expect.
+* These live outside of the safety of our database transactions (yes, I know postgres can do it), and we often turn to application level callbacks to keep them in sync with our system of record (or database).
+* It's also worth mentioning that if we want to join records with the main database, we have to do it at the application level.
+* It's important to note that the sync is eventually consistent
 
 ---
 
@@ -111,11 +127,12 @@ We turn to search engines to provide our user with the searching they expect. Th
 
 ???
 
-When stakeholders ask for reports, we either join the world in a 15 minute query that brings the server to it's knees or we periodically copy our database into an offline copy that we can work with. Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
+When stakeholders ask for reports, we either join the world in a 15 minute query that brings the server to it's knees or we periodically copy our database into an offline copy that we can work with.
+Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
 
 ---
 
-# Specialized data
+# Alternative/Specialized data storage
 * Graph-friendly structures
 * GIS
 * Etc
@@ -135,20 +152,19 @@ Similar to the Searching example, a graph or GIS database might be a better solu
 
 ???
 
-I think most of us are read-heavy, and yet we spend tons of time and energy re-reading from our big model. Can we flip that on it's head?
+* I think most of us are read-heavy, and yet we spend tons of time and energy re-reading from our big model.
+* Can we flip that on it's head?
 
 ---
 
 # What are ES and CQRS?
-* Simple ideas with big implications
 * Store events instead of state.
 * Rebuild state from events
+* Simple ideas with big implications
 * CQRS: Separate Read and Write logic.
 
 ???
 
-What are ES + CQRS?
-It’s a simple idea with echoing implications, I don’t want to oversell or pretend it doesn’t have baggage.
 ---
 
 # Pithy neck-beard answers:
@@ -157,115 +173,65 @@ It’s a simple idea with echoing implications, I don’t want to oversell or pr
 
 ???
 
-Pithy neck-beard answer:
-It’s a left fold over the history of events!
+* Greg Young. Reductionist, smart but kind of a dick.
+* Belies the complexity and pitfalls.
 
-Greg Young. Reductionist, smart but kind of a dick.
-Accountants don’t use pencils, they use pens.
-Belies the complexity and pitfalls. I understand that people have committed terrible sins in his name, but let’s not pretend this doesn’t change things.
 ---
 
 # Quick example 1: Shopping cart
-## TODO: Add, Add, Remove, Checkout
+
+```elixir
+AddedToCart("apples")         # ["apples"]
+AddedToCart("pears")          # ["apples", "pears"]
+AddedToCart("pretzels")       # ["apples, "pears", "pretzels"]
+RemovedFromCart("pretzels")   # ["apples", "pears"]
+CartCheckout()                # []
+```
+
+* State is derived from apply events
+* Current state is lossy
+* Events have the full picture
 
 ???
 
-* Show state at each step total, count
-* Talk about how the state is derived from the events by the aggregate
+* Simplified model
+* The state of the cart is a product of apply each event in sequence
+* Cart state is derived from the events
+* Current state is lossy
+* They bought apples and pears, but considered buying the pretzels
+
 ---
 
 # Quick example 2: Bank account
-open, deposit,withdraw, how much?
 
-<!-- Check out @eventideproject's Tweet: https://twitter.com/eventideproject/status/895383797470048256?s=15 -->
+```elixir
+AccountOpened(123, 100)
+AccountOpened(456, 50)
+Deposited(123, 20)
+Withdrew(123, 80)
+Withdrew(456, 20)
+
+123 => 40
+456 => 30
+```
+
+* Events have already happened
+* Events are interleaved
+
 ???
-
-* Talk about guarding invariants: deposit before open
 
 ---
 
 # Kinda like...
 * Git
-* Database repllication log
+* Database replication log
 * Journaling file systems
 
 ???
 
----
-
-# But first...
-### Domain Driven Design in 2 minutes
-* Aggregate root is a transaction boundary
-* Responsible for maintaining invariants
-* May refer to other aggregates by ID only
-* Order + Line Item Example
-* Came from OOP in 2003
-
-???
-
-But First a crash course in DDD:
-Aggregate: Transactional isolation boundary. Show example of Order + Line Items
-Briefly mention that Customer may or may not be part of the aggregate
-Only reference other aggregates by ID.
-
----
-
-# Aggregate Root
-```elixir
-# Maintain invariants over it's children
-# Order is the root here, LineItems are children
-defmodule Order do
-  use GenServer
-
-  def create(id, max_cost) do
-    # create an order row in the db
-  end
-
-  def add_item(item) do
-    # freak out if we'd blow the budget
-    # create a line_item row in the db
-    # update total cost
-  end
-
-  def remove_item(item) do
-    # remove a line_item row in the db
-    # update total cost
-  end
-end
-```
-
-???
-
-Here order maintains the transaction boundary for it's children. The genserver serializes the changes
-
----
-# Chaos
-
-```elixir
-# Go behind Order's back
-defmodule Bad do
-  def remove_line_item(line_item_id) do
-    # reach into the db and subvert Order's ability to maintain invariants
-  end
-end
-
-```
-
-???
-
-* Non-linear
-* Race conditions
-
----
-
-# Getting the boundaries right is subjective and tricky
-
-* Customer + Order + LineItem
-* Customer || Order + LineItem
-
-???
-
-Talk about how this can be different depending on use case
+* Apply deltas
+* If you are behind, you can catch up from the last known spot
+* Or even from the start
 
 ---
 
@@ -376,6 +342,102 @@ Command => handler => Events => Store => Projection ⇐ Query => command … etc
 
 ???
 
+---
+
+# Domain Driven Design in 2 minutes
+
+```elixir
+%Order {
+  # Reference to another aggregate,
+  # Customer maintains it's own transaction isolation
+  customer_id: 123,
+
+  # Order's responsibility:
+  items: [
+    %Item{ item_id: 1, price: 100 },
+    %Item{ item_id: 2, price: 200 },
+  ]
+}
+```
+
+* Came from OOP in 2003
+* Order and Customer are Aggregate Roots
+* Item is not
+* May refer to other aggregates by ID only
+
+???
+
+* Detour to talk about DDD
+* Origins in OOP in 2003, Eric Evans
+* Aggregate => Domain model
+* Only reference other aggregates by ID.
+* Briefly mention that Customer may or may not be part of the aggregate
+
+---
+
+# Aggregate Root
+```elixir
+# Maintain invariants over it's children
+# Order is the root here, LineItems are children
+defmodule Order do
+  use GenServer
+
+  def create(id, max_cost) do
+    # create an order row in the db
+  end
+
+  def add_item(item) do
+    # freak out if we'd blow the budget
+    # create a line_item row in the db
+    # update total cost
+  end
+
+  def remove_item(item) do
+    # remove a line_item row in the db
+    # update total cost
+  end
+end
+```
+
+* Control access to children
+* Transaction boundary
+* Maintain invariants
+* Serialize access with GenServer
+
+???
+
+* Elixir is a really good fit here.
+
+---
+# Chaos
+
+```elixir
+# Go behind Order's back
+defmodule Bad do
+  def remove_line_item(line_item_id) do
+    # reach into the db and subvert Order's ability to maintain invariants
+  end
+end
+
+```
+
+???
+
+* Non-linear
+* Race conditions
+
+---
+
+# Getting the boundaries right is subjective and tricky
+
+* Customer + Order + LineItem
+* Customer || Order + LineItem
+
+???
+
+Talk about how this can be different depending on use case
+
+---
 ---
 # Why would you want to do this?
 
