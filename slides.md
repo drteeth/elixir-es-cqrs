@@ -858,18 +858,19 @@ That gets us our linear access to the events involved and we can issue commands 
 %FundTransferCompleted { transaction_id: 1 }
 ```
 
+---
+
+# Failure
+
 If something goes wrong, you have a linear history of what happened and can rollback by issue compensating
 events.
 
-* Saga or Process Managers
-* Long-running process
-* Compensating actions from rollback
-  * Refund
-  * Cancel
-  * Gift
-  * Apologize
-  * Flag a human
-  * Etc
+* Refund
+* Cancel
+* Gift
+* Apologize
+* Flag a human
+* Etc
 
 ???
 
