@@ -76,10 +76,9 @@ class: middle
 
 # Indexing
 * Speed up reads by creating alternative indexes behind the scenes
-* Alternative structure
-* Optimized for particular read patterns
-* Requires domain knowledge
-* Sacrifices write speed
+* Alternative structure written to disk that is optimized for particular read patterns
+* Requires domain knowledge to write them
+* Sacrifices write speed for read speed
 
 ???
 
@@ -149,7 +148,7 @@ class: middle
 # Alternative/Specialized data storage
 * Graph-friendly structures
 * GIS
-* Etc
+* Often an all-or-nothing proposition
 
 ???
 
@@ -408,6 +407,7 @@ class: middle
 * Often in service of a specific view
 * Denormalized
 * Can be Sync or Async
+* Eventualy consistent.
 
 ---
 class: middle
@@ -504,6 +504,7 @@ class: middle
   * Long-running processes
 * Projection + can emit commands
 * Guard side effects against replays
+* Eventually consistent
 * Lots more to talk about here.
 
 
@@ -532,8 +533,8 @@ defmodule Welcomer do
   end
 
   defp send_welcome_email(e) do
-    mailer.send_welcome_email(e.email) # Don't do this on replay!
     db.insert(account) # remember the account for next time
+    mailer.send_welcome_email(e.email) # Don't do this on replay!
     [] # no commands
   end
 end
@@ -818,6 +819,15 @@ class: middle
 ---
 class: middle
 
+# Caching
+
+* Just kidding - it is a cache!
+* It's a perfect cache
+* That knows exactly when and how to invalidate itself
+
+---
+class: middle
+
 # Scaling
 
 ### Read projections are easy to scale:
@@ -849,6 +859,7 @@ class: middle
 * Very resilient
 * Events can be shared with an event bus (Kafka is popular in the space)
 * You are giving up consistency anyway
+* DDD: Bounded Context
 
 ???
 
