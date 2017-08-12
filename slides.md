@@ -8,7 +8,6 @@ class: center, middle
 * Intro to event sourcing and cqrs.
 * Exploring what ES/CQRS are and how they differ from traditional methods.
 ---
-
 class: center, middle
 
 # Ben Moss
@@ -28,12 +27,13 @@ Hi I’m Ben Moss,
 * I've done a lot of things in my past, including c# where a lot of these ideas originated.
 
 ---
+class: center, middle
 
-# The status quo
-### What most of us are doing most of the time.
+# Recapping the last 20 years
 ![Tried and True](images/tried_and_true_venn.svg)
 
 ---
+class: middle
 
 # SQL with ACID transactions
 * Strong consistency
@@ -44,8 +44,6 @@ Hi I’m Ben Moss,
 * Doesn't scale that well
 
 Replication logs... hmmm...
-
-![Contention](https://cdn-images-1.medium.com/max/640/0*9QCp-MLkSuTFd3m6.jpg)
 
 ???
 
@@ -58,13 +56,15 @@ Replication logs... hmmm...
 * Hang on to that idea.
 
 ---
+class: middle
+
 # 3rd normal form
 * Provide a canonical source for data and relationships
 * Re-combine those into the representations we need
 * Designed to be storage efficient
 * Often a single monolithic model supports all use cases
 
-![Giant ERD](images/big-erd.png)
+<!-- ![Giant ERD](images/big-erd.png) -->
 
 ???
 
@@ -73,6 +73,7 @@ We store our data in 3NF to avoid data falling out of sync, and when we need a d
 We attempt to capture all representations and use cases in this single model and this can be the source of complexity. We also often end up with a lowest common denominator where our model struggles to meet all needs.
 
 ---
+class: middle
 
 # Indexing
 * Speed up reads by creating alternative indexes behind the scenes
@@ -99,6 +100,7 @@ Sequentially reading from source tables is slow, so we use indexing
 Hang on to the idea of multiple, domain-informed representations
 
 ---
+class: middle
 
 # Decent into dante's caching inferno
 * One of the 2 hard problems in computer science
@@ -112,6 +114,7 @@ Hang on to the idea of multiple, domain-informed representations
 * It often solves the problem but can get really complex in pathological cases and is often used to make up for expensive queries.
 
 ---
+class: middle
 
 # Searching
 * Offloaded onto Solr/Elastic
@@ -127,6 +130,7 @@ Hang on to the idea of multiple, domain-informed representations
 * It's important to note that the sync is eventually consistent
 
 ---
+class: middle
 
 # Reporting & Analyics
 * Batch model
@@ -141,6 +145,7 @@ When stakeholders ask for reports, we either join the world in a 15 minute query
 Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
 
 ---
+class: middle
 
 # Alternative/Specialized data storage
 * Graph-friendly structures
@@ -152,24 +157,35 @@ Either way, we often spend 95% of the time and energy spent going over the same 
 Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
 
 ---
+class: middle, center
+# What are ES and CQRS then?
 
-# What are ES and CQRS?
+---
+class: middle, center
 
-### Event sourcing:
-* Store events instead of state.
-* Rebuild state from events
+# Event sourcing
+##### Store events instead of state.
+##### Rebuild state from events
 
-### Command Query Responsibility Segregation:
-* Separate Reads from Writes
+---
+class: middle, center
 
-Simple ideas with big implications...
+# Command-Query Responsibility Segregation
+
+##### Separate Reads from Writes
 
 ???
 
 ---
+class: middle, center
 
-# Pithy neck-beard answers
-> "It’s a left fold over the history of events!"
+# What is Event sourcing?
+> "It’s just a left fold over the history of events!" -- Neckbeard McGee
+
+---
+class: middle, center
+
+# What is Event sourcing?
 
 ```elixir
 new_state = List.foldl(events, initial_state, fn (e, state) ->
@@ -183,19 +199,28 @@ new_state = List.foldl(events, initial_state, fn (e, state) ->
 * Belies the complexity and pitfalls.
 
 ---
+class: middle, center
 
-# Pithy neck-beard answers
+# What is Event sourcing?
 
-> "Accountants don’t use pencils, they use pens."
+> "Accountants don’t use pencils, they use pens." -- Neckbeard McGee
 
-* Events are immutable
-* Generate compensating ones to correct mistakes
+---
+
+class: middle, center
+
+# What is Event sourcing?
+
+Events are immutable
+
+Generate compensating ones to correct mistakes
 
 ???
 
 Simlar to accounting ledgers, events never change. new facts are added the replace older ones.
 
 ---
+class: middle
 
 # Quick example 1: Shopping cart
 
@@ -221,6 +246,7 @@ Simlar to accounting ledgers, events never change. new facts are added the repla
 * They bought apples and pears, but considered buying the pretzels
 
 ---
+class: middle
 
 # Quick example 2: Bank account
 
@@ -243,6 +269,7 @@ Simlar to accounting ledgers, events never change. new facts are added the repla
 ???
 
 ---
+class: middle
 
 # Kinda like...
 * Git
@@ -256,6 +283,7 @@ Simlar to accounting ledgers, events never change. new facts are added the repla
 * Or even from the start
 
 ---
+class: middle
 
 # The pieces
 * Commands
@@ -270,6 +298,14 @@ Simlar to accounting ledgers, events never change. new facts are added the repla
 Let's talk about the main architectural bits that make up the pattern.
 
 ---
+class: middle
+
+# How it all fits together
+
+![Event Sourcing Diagram](images/event_sourcing_overview.svg)
+
+---
+class: middle
 
 # Commands
 * Represents some intent
@@ -290,6 +326,7 @@ Typically IDs are passed in
 UUIDs are a popular choice for this reason
 
 ---
+class: middle
 
 # Events
 
@@ -308,6 +345,7 @@ UUIDs are a popular choice for this reason
 ```
 
 ---
+class: middle
 
 # Command Handlers
 
@@ -348,6 +386,7 @@ Command handlers accept commands and turn them into events
 * Must be idempotent so they can be retried
 
 ---
+class: middle
 
 # Projections / Event handlers
 
@@ -360,6 +399,7 @@ Command handlers accept commands and turn them into events
 * Can be Sync or Async
 
 ---
+class: middle
 
 # Combine streams to create views
 
@@ -388,6 +428,7 @@ id | customer_name | balance | status
 * Note that here you can infer data such as the status column
 
 ---
+class: middle
 
 ```elixir
 defmodule AccountBalanceProjection do
@@ -431,6 +472,8 @@ end
 * This is the big win here - You can really run with this idea - more later
 
 ---
+class: middle
+
 # Event store:
 
 Durable storage for your events. It's stores events in a append-only way.
@@ -445,6 +488,7 @@ Durable storage for your events. It's stores events in a append-only way.
 ???
 
 ---
+class: middle
 
 # Process Managers / Sagas
 * Used to handle business processes
@@ -456,6 +500,7 @@ Durable storage for your events. It's stores events in a append-only way.
 
 
 ---
+class: middle
 
 # A Process manager
 
@@ -493,6 +538,8 @@ end
 * Beware of replays and side effects
 
 ---
+class: middle
+
 # How it all fits together
 
 ![Event Sourcing Diagram](images/event_sourcing_overview.svg)
@@ -512,6 +559,7 @@ end
 #### Green: Read-side
 
 ---
+class: middle
 
 # Domain Driven Design in 2 minutes
 
@@ -544,6 +592,7 @@ end
 * Briefly mention that Customer may or may not be part of the aggregate
 
 ---
+class: middle
 
 # Aggregate Root
 
@@ -580,6 +629,8 @@ end
 * Elixir is a really good fit here.
 
 ---
+class: middle
+
 # Chaos
 
 ```elixir
@@ -598,26 +649,18 @@ end
 * Race conditions
 
 ---
-
-# Getting the boundaries right is subjective and tricky
-
-* Customer + Order + LineItem
-* Customer || Order + LineItem
-
-???
-
-Talk about how this can be different depending on use case
-
----
+class: middle, center
 
 # Why would you want to do this?
 
 ???
 
 ---
+class: middle
+
 # Audit Trail / Logging
 * How did my model get into this state?
-* Guarnteed to be correct + complete
+* Guaranteed to be correct & complete
 
 ```elixir
 # How did we get here??
@@ -637,6 +680,8 @@ Talk about how this can be different depending on use case
 Talk about the importance of being able to know how a model got into a particular state.
 
 ---
+class: middle
+
 # Time-travel debugging
 
 
@@ -717,7 +762,7 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 * New projections can up without affecting others
 
 ---
-# Scalling
+# Scaling
 
 ### Read projections are easy to scale:
 * They depend on a stream of immutable events
