@@ -27,10 +27,9 @@ Hi I’m Ben Moss,
 * I've done a lot of things in my past, including c# where a lot of these ideas originated.
 
 ---
-class: center, middle
+class: center, middle, inverse
 
-# Recapping the last 20 years
-![Tried and True](images/tried_and_true_venn.svg)
+# Motivation: where are we now?
 
 ---
 class: middle
@@ -102,7 +101,7 @@ Hang on to the idea of multiple, domain-informed representations
 ---
 class: middle
 
-# Decent into dante's caching inferno
+# Descent into Dante's caching inferno
 * One of the 2 hard problems in computer science
 * Invalidating is complicated
 * Adds a layer of complexity to the app
@@ -157,7 +156,7 @@ class: middle
 Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
 
 ---
-class: middle, center
+class: middle, center, inverse
 # What are ES and CQRS then?
 
 ---
@@ -177,20 +176,20 @@ class: middle, center
 ???
 
 ---
-class: middle, center
+class: middle
 
 # What is Event sourcing?
 > "It’s just a left fold over the history of events!" -- Neckbeard McGee
 
 ---
-class: middle, center
+class: middle
 
 # What is Event sourcing?
 
 ```elixir
-new_state = List.foldl(events, initial_state, fn (e, state) ->
-              apply_event(e, to: state)
-            end)
+List.foldl(events, initial_state, fn (e, state) ->
+  apply_event(e, to: state)
+end)
 ```
 
 ???
@@ -199,7 +198,14 @@ new_state = List.foldl(events, initial_state, fn (e, state) ->
 * Belies the complexity and pitfalls.
 
 ---
-class: middle, center
+class: middle
+
+# What is Event sourcing?
+
+Thanks for nothing.
+
+---
+class: middle
 
 # What is Event sourcing?
 
@@ -207,7 +213,7 @@ class: middle, center
 
 ---
 
-class: middle, center
+class: middle
 
 # What is Event sourcing?
 
@@ -283,6 +289,11 @@ class: middle
 * Or even from the start
 
 ---
+class: middle, center, inverse
+
+# How does it work?
+
+---
 class: middle
 
 # The pieces
@@ -349,10 +360,10 @@ class: middle
 
 # Command Handlers
 
-* Hydrate aggregate from store
-* Accept or reject a command
-* Simple, fast validations only
-* Idempotent
+* Hydrate ~~aggregate~~ model from store
+* Accept or reject the command
+* Based on simple validations
+* Must be idempotent
 
 ```elixir
 defmodule AccountHandler do
@@ -361,7 +372,7 @@ defmodule AccountHandler do
     stream = "account_#{command.account_id}"
     events = event_store.load_events(stream)
 
-    # replay the events (re-hydrate the aggregate)
+    # replay the events (re-hydrate the account)
     account = List.foldl(events, %Account{}, &Account.apply/2)
 
     # now use it to validate the incoming command
@@ -391,9 +402,9 @@ class: middle
 # Projections / Event handlers
 
 * Listen for events from many streams
-* Kind of like a SQL view (materialized)
-* Derive new data from aggregate streams
-* Combine facts like a Join does
+* Derive new data
+* Combine facts sort of like a SQL Join would
+* Kind of like a SQL view, but materialized
 * Often in service of a specific view
 * Denormalized
 * Can be Sync or Async
@@ -401,7 +412,7 @@ class: middle
 ---
 class: middle
 
-# Combine streams to create views
+# Combine streams to derive new states
 
 
 ```elixir
@@ -434,24 +445,24 @@ class: middle
 defmodule AccountBalanceProjection do
 
   def handle(&CustomerRegistered{} = e) do
-   database.upsert(e.customer_id, name: e.name, balance: 0)
+   db.insert(e.customer_id, name: e.name, balance: 0)
   end
 
   def handle(%AccountOpened{} = e) do
-   database.upsert(e.customer_id, balance: 0)
+   db.update(e.customer_id, balance: 0)
   end
 
   def handle(%Deposited{} = e) do
     row = db.find(e.customer_id)
     new_balance = row.balance + e.amount
-    database.upsert(e.customer_id, balance: new_balance,
+    db.update(e.customer_id, balance: new_balance,
       status: judge(new_balance))
   end
 
   def handle(&Withdrew{} = e) do
     row = db.find(e.customer_id)
     new_balance = row.balance - e.amount
-    database.upsert(e.customer_id, balance: new_balance,
+    db.update(e.customer_id, balance: new_balance,
       status: judge(new_balance))
   end
 
@@ -476,14 +487,11 @@ class: middle
 
 # Event store:
 
-Durable storage for your events. It's stores events in a append-only way.
-* Old school: SQL Table
-* Purpose built: EventStore / PumpkinDB
+Durable storage for your events. It's stores events in an append-only way.
+
+* Easy & familiar: A SQL table
+* Purpose built: EventStore
 * Awesome by accident: Kafka/Jocko
-
-
-* a1, a2, a3, a4, ... aN
-* b1, b2, b3, b4, ... bN
 
 ???
 
@@ -525,6 +533,7 @@ defmodule Welcomer do
 
   defp send_welcome_email(e) do
     mailer.send_welcome_email(e.email) # Don't do this on replay!
+    db.insert(account) # remember the account for next time
     [] # no commands
   end
 end
@@ -559,16 +568,17 @@ class: middle
 #### Green: Read-side
 
 ---
+class: middle, center, inverse
+
+# Interlude: Domain Drive Design in 2 minutes
+
+---
 class: middle
 
-# Domain Driven Design in 2 minutes
-
-* Came from OOP in 2003
-* Order and Customer are Aggregate Roots
-* Item is not
-* May refer to other aggregates by ID only
+# DDD Crash Course
 
 ```elixir
+
 %Customer {
   id: 123,
   name: "Ben Moss",
@@ -583,6 +593,13 @@ class: middle
 }
 
 ```
+
+* Came from OOP in 2003
+* Order and Customer are Aggregate Roots (in this example)
+* Item is not a root, Order owns it.
+* May refer to other aggregates by ID only
+* You may not hold references to other aggregates
+
 ???
 
 * Detour to talk about DDD
@@ -649,9 +666,9 @@ end
 * Race conditions
 
 ---
-class: middle, center
+class: middle, center, inverse
 
-# Why would you want to do this?
+# Why would you want to use ES/CQRS/DDD?
 
 ???
 
@@ -661,6 +678,8 @@ class: middle
 # Audit Trail / Logging
 * How did my model get into this state?
 * Guaranteed to be correct & complete
+* Breadcrumbs
+* Bug in the process manager? Fix + replay
 
 ```elixir
 # How did we get here??
@@ -706,16 +725,36 @@ unspace.people_inside => []
 It's easy to see the state of the system at a particular point in history.
 
 ---
+class: middle
+
 # Fast and simple reads
-* Tailored to the use case
-* Easy, fast reads
-  * Straight reads from SQL with PK
-  * NoSQL Document
-  * Search Engine query
-  * GraphDB query
-  * Flat text files (Look Ma' straight from Nginx)
-  * Binary blobs (generated images, serialized protobuf, etc)
-  * Just keep it in memory - Skip the disk
+* Tailored to the each use case
+* Denormalized
+* Optimized for reading
+* Like ViewModels
+* No need for an ORM
+
+```sql
+-- index page
+select * from post_index limit 100;
+
+-- detail page
+select * from posts_with_comments_and_authors where post_id = 123;
+
+````
+
+---
+class: middle
+
+# Read side and write side can be different DBs:
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+* Generate markdown and publish those via jekyll/hugo
+* Binary blobs (generated images, serialized protobuf, etc)
+* Just keep it in memory - Who needs a disk?
 
 ???
 
@@ -725,6 +764,18 @@ Imaging a big 10 table join that you read out of everytime you hit a page. - You
 Giant, slow join that involves many larger tables that re-does 99% of it’s work everytime it’s run but still somebody has to wait.
 
 ---
+class: middle
+
+# Feed auxilary services
+
+Projections can be used to keep auxilary services in sync:
+* Analytics/Metrics
+* Accounting
+* Calendars
+* Salesforce ><
+
+---
+class: middle
 
 # Fast writes
 * Append-only
@@ -732,42 +783,52 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 * Just the facts
 * Defer expensive work until we've accepted the write
   * Allows the system to move on to the next write
-  * Allows the caller if they want
+  * Allows the caller to move on if they want
 ???
 
 ---
+class: middle
+
 # Caching
 
 * No longer needed?
 
 ---
+class: middle
+
 # Caching
 
 * Not as needed?
 
 ---
+class: middle
+
 # Caching
 
 * Just kidding - it is a cache!
 
 ---
+class: middle
+
 # Caching
 
 * Just kidding - it is a cache!
 * It's a perfect cache
 
 ---
+class: middle
 
-# Enable experiments
-* New projections can up without affecting others
-
----
 # Scaling
 
 ### Read projections are easy to scale:
 * They depend on a stream of immutable events
 * Just bring up new instances of the projections
-* They will always come up with the same answer given
+* Replay the events through them to get them up to speed
+
+---
+class: middle
+
+# Scaling
 
 ### Writes are harder to scale, but still possible
 * Shard on aggregate type
@@ -780,6 +841,8 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 * Replicating write stores
 
 ---
+class: middle
+
 # Microservices in brief
 * Pretty good fit here.
 * Instead of services querying each other, just tail and emit events.
@@ -790,6 +853,8 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 ???
 
 ---
+class: middle
+
 # Resilient
 * So long as event are stored, you can get your state back.
 * Easy to back up
@@ -798,15 +863,19 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 ???
 
 ---
+class: middle, center, inverse
+
 # Knee-jerk concerns and misconceptions:
 
 ---
+class: middle
 
 ### Won't there be like a bajillion events per second?
 * People always think about their webserver logs. It's slower than that
 * But it can still be a lot.
 
 ---
+class: middle
 
 ### Isn't re-loading all of the events from the beginning of time slow?
 * Just the events for 1 aggregate
@@ -816,21 +885,25 @@ Giant, slow join that involves many larger tables that re-does 99% of it’s wor
 * Avoid God streams (Don't hang everything off of user)
 
 ---
+class: middle
 
 ### Doesn't this take more disk space?
 * Yep. Deal with it, disk is cheap.
 
 ---
+class: middle
 
 ### Doesn't async make everything hard?
 * It suuuure can. Not a requirement.
 * Totally reasonable to mix sync and async
 
 ---
+class: middle, center, inverse
 
-# How do we do this?
+# How do we do it?
 
 ---
+class: middle
 
 # Elixir
 * GenServer is a great model for an Aggregate.
@@ -849,6 +922,8 @@ Great tools for managing concurrency and serialization
 Serialization as transactions.
 
 ---
+class: middle
+
 # Commanded
 ### [github.com/slashdotdash/commanded](https://github.com/slashdotdash/commanded)
 
@@ -858,24 +933,9 @@ Serialization as transactions.
 
 ???
 
----
-
-# Dos:
-* Mix of Coarse and fine grain events:
-* It's ok to overlap
-* A lot like REST, model the missing things. Model a transfer as an aggregate like you might with a REST action. Session etc
-
-???
 
 ---
-
-# Don'ts:
-* Have projections depend on each other - Prefer duplication
-* Read from the Write side. Wat... Oh here we go...
-
-???
-
----
+class: middle
 
 # Implementing
 * You can go slow:
@@ -891,6 +951,7 @@ Don’t have to have your whole system use ES or CQRS.
 Dial it in
 
 ---
+class: middle
 
 # Coordinating multiple aggregates
 
@@ -907,11 +968,12 @@ That gets us our linear access to the events involved and we can issue commands 
 ```
 
 ---
+class: middle
 
 # Failure
 
-If something goes wrong, you have a linear history of what happened and can rollback by issue compensating
-events.
+If something goes wrong, you have the history of what happened and can correct by issue compensating
+events. (Yes that's much easier said than done)
 
 * Refund
 * Cancel
@@ -925,34 +987,34 @@ events.
 Talk about giving up ACID and 2PC
 
 ---
+class: middle
+
 # The Ugly:
-> "I'm just looking for one divine hammer / I'd bang it all day "
 
 * Very real complexity
 * Did you hear me say Eventual Consistency?
-  Yes to all of those alarm bells
-* It's a whole new ballgame
-  re-learn, throw out all your assumptions right out of the gates, common tasks are made brutal.
+  * Yes to all of those alarm bells
+
+* Throw out all your assumptions, common tasks are made brutal.
   * Send a flippin' email.
   * Validate a unique username
 
-* There are compromises but you will question your sanity.
- Unique emails coliding? => Unlikely!, detect later?!
-
 * The ES/CQRS crowd
-- It's really hard to know which way is up
-- Thou shalt nots
+* It's really hard to know which way is up
+* Thou shalt nots
 
 ???
 
 ---
+class: middle
 
-# Conclusion
 ## All in?
 * Good for larger projects
-* bye bye transactions anyway, may as well get something for it
-* Good for smaller/medium? unclear to me still, but you can also scale back your implementation (synchronus, use ACID, etc)
-* Next time: Code + my adventures with commanded
+  * Bye-bye transactions anyway, may as well get something for it
+* Good for smaller/medium?
+  * Unclear to me still
+  * Not all-or-nothing (Sync, only some models, etc)
+* Next time: Code + my adventures with Commanded
 
 ???
 
@@ -961,3 +1023,12 @@ Ok, so all in?
 Seems like good for larger projects.You have to give up transaction anyway, may as well get something for it.
 
 Jury is def out for the smaller (1-box) projects. But on the flip side, you can use synchronous to your advantage here.
+
+---
+class: middle, center, inverse
+
+# Questions?
+
+ben@bitfield.co
+
+Slides: https://drteeth.github.io/elixir-es-cqrs
