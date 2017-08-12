@@ -1,12 +1,12 @@
 class: center, middle
 
-# Intro to Event Sourcing and CQRS...
-### and some DDD... and stuff...
+# Intro to Event Sourcing and CQRS
 
 ???
 
 * Intro to event sourcing and cqrs.
 * Exploring what ES/CQRS are and how they differ from traditional methods.
+
 ---
 class: center, middle
 
@@ -34,24 +34,28 @@ class: center, middle, inverse
 ---
 class: middle
 
-# SQL with ACID transactions
+# SQL & ACID transactions
+
+Pro
 * Strong consistency
 * Easy
 * Safe
 * Totally reasonable for smaller projects
+
+Con
 * Locks and contention
 * Doesn't scale that well
 
-Replication logs... hmmm...
-
 ???
+
+# SQL is a solid bet, but it can start to fall down at scale
 
 * With SQL we get a solid, sane, general purpose solution.
 * Strong consistency, it's easy, it's safe and totally reasonable for smaller projects
 * Things start to get complicated when it's time to scale.
 * Especially when we out-grow a single machine
-* We scale by sharding
-* We scale by using leader/follower replication
+* We scale by sharding & by replication
+* Replication uses a log of events that followers tail
 * Hang on to that idea.
 
 ---
@@ -66,6 +70,8 @@ class: middle
 <!-- ![Giant ERD](images/big-erd.png) -->
 
 ???
+
+# 3NF makes for a compact, duplicate free model, but it leaves a lot for readers to interpret and infer, usually at run time.
 
 We store our data in 3NF to avoid data falling out of sync, and when we need a different view of our data we need to re-constitute it from this 3rd normal form.
 
@@ -82,20 +88,11 @@ class: middle
 
 ???
 
-# Indexing
+# Indexing speeds up read time by keeping alternative lookups for specific read patterns. Comes at the cost of write speed.
 
-Sequentially reading from source tables is slow, so we use indexing
-
-* Speed up reads by creating alternative indexes behind the scenes
-* Alternative structure
-  * Separate map of the documents based on some field
-* Optimized for particular read patterns
-* Requires domain knowledge
-  * UI design informs which indexes are important
-* Sacrifices write speed
-  * Each index adds cost to write time so that strong consistency is always observed.
-
-Hang on to the idea of multiple, domain-informed representations
+* UI design informs which indexes are important
+* Each index adds cost to write time so that strong consistency is always observed.
+* Hang on to the idea of multiple, domain-informed representations
 
 ---
 class: middle
@@ -108,8 +105,7 @@ class: middle
 
 ???
 
-* When things get really slow with our apps, we often reach for caching.
-* It often solves the problem but can get really complex in pathological cases and is often used to make up for expensive queries.
+# Caching is hard and is often used to make up for slow queries.
 
 ---
 class: middle
@@ -121,6 +117,8 @@ class: middle
 * Eventually consistent.
 
 ???
+
+# Searching is an example of another alternative representation, this time it's eventually consistent and can't participate in transactions.
 
 * We turn to search engines to provide our user with the searching they expect.
 * These live outside of the safety of our database transactions (yes, I know postgres can do it), and we often turn to application level callbacks to keep them in sync with our system of record (or database).
@@ -139,6 +137,8 @@ class: middle
 
 ???
 
+# Reporting is another example. It's often done in batch and denormalizes the data. Eventually consistent.
+
 When stakeholders ask for reports, we either join the world in a 15 minute query that brings the server to it's knees or we periodically copy our database into an offline copy that we can work with.
 Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
 
@@ -148,9 +148,12 @@ class: middle
 # Alternative/Specialized data storage
 * Graph-friendly structures
 * GIS
+* 3rd party services (Salesforce, Accounting, etc)
 * Often an all-or-nothing proposition
 
 ???
+
+# This is mostly about special use cases and how we often shoe-horn them into a SQL database rather than using a specialized tool. SQL has such a strong hold on our data that sharing it with another DB is untenable.
 
 Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
 
