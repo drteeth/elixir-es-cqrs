@@ -50,9 +50,6 @@ Con
 
 # SQL is a solid bet, but it can start to fall down at scale
 
-* With SQL we get a solid, sane, general purpose solution.
-* Strong consistency, it's easy, it's safe and totally reasonable for smaller projects
-* Things start to get complicated when it's time to scale.
 * Especially when we out-grow a single machine
 * We scale by sharding & by replication
 * Replication uses a log of events that followers tail
@@ -531,6 +528,20 @@ class: middle
 * Guard side effects against replays
 * Eventually consistent
 * Lots more to talk about here.
+
+---
+class: middle
+
+# TODO show a diagram of a saga
+# ASCII art?
+
+TransferRequested(tx_id: 1, from: 123, to: 456, amount: 100)
+-> Withdraw(from: 123, amount: 100, tx_id: 1)
+-> Withdrew(from: 123, amount: 100, tx_id: 1)
+-> Deposit(to: 123, amount: 100, tx_id:1)
+-> Deposited(to: 123, amount: 100, tx_id: 1)
+-> CompleteTransfer(tx_id: 1, status: :ok)
+-> TransferCompleted(tx_id: 1, status: :ok)
 
 ???
 
