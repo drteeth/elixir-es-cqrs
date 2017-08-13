@@ -532,38 +532,6 @@ class: middle
 ---
 class: middle
 
-# TODO show a diagram of a saga
-
-```elixir
-# listen for:
-%Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
-
-# emit:
-%Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
-
-# listen for:
-%Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
-
-# emit:
-%Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
-
-# listen for:
-%Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
-
-# emit:
-%Transfer.Complete{ tx_id: 1, status: :ok }
-
-# Transfer aggregate could emit
-%Transfer.Completed{ tx_id: 1, status: :ok }
-```
-
-???
-
-# Sometimes the system needs to watch over a series of events and commands and react to what it sees.
-
----
-class: middle
-
 # A Process manager
 
 ```elixir
@@ -599,6 +567,53 @@ end
 * Emit new commands to compensate
 * Perform side effects
 * Beware of replays and side effects
+
+---
+class: middle
+
+# Process Managers as Transactions
+
+* Coordinates Aggregates
+* PMs are Stateful
+* Can crash and be restarted
+* Can involve other systems unlike SQL transactions
+
+???
+
+# Sometimes the system needs to watch over a series of events and commands and react to what it sees.
+
+---
+class: middle
+
+# Process Managers as Transactions
+
+```elixir
+# Transfer aggregate
+%Transfer.Request{ tx_id: 1, from: 123, to: 456, amount: 100 }
+
+  # listen for:
+  %Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
+
+  # emit:
+  %Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
+
+  # listen for:
+  %Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
+
+  # emit:
+  %Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
+
+  # listen for:
+  %Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
+
+  # emit:
+  %Transfer.Complete{ tx_id: 1, status: :ok }
+
+# Transfer aggregate could emit
+%Transfer.Completed{ tx_id: 1, status: :ok }
+```
+
+???
 
 ---
 class: middle
