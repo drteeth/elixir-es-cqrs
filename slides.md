@@ -533,15 +533,29 @@ class: middle
 class: middle
 
 # TODO show a diagram of a saga
-# ASCII art?
 
-TransferRequested(tx_id: 1, from: 123, to: 456, amount: 100)
--> Withdraw(from: 123, amount: 100, tx_id: 1)
--> Withdrew(from: 123, amount: 100, tx_id: 1)
--> Deposit(to: 123, amount: 100, tx_id:1)
--> Deposited(to: 123, amount: 100, tx_id: 1)
--> CompleteTransfer(tx_id: 1, status: :ok)
--> TransferCompleted(tx_id: 1, status: :ok)
+```elixir
+# listen for:
+%Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
+
+# emit:
+%Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
+
+# listen for:
+%Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
+
+# emit:
+%Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
+
+# listen for:
+%Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
+
+# emit:
+%Transfer.Complete{ tx_id: 1, status: :ok }
+
+# Transfer aggregate could emit
+%Transfer.Completed{ tx_id: 1, status: :ok }
+```
 
 ???
 
