@@ -4,8 +4,9 @@ class: center, middle
 
 ???
 
-* Intro to event sourcing and cqrs.
-* Exploring what ES/CQRS are and how they differ from traditional methods.
+# Exploring what ES/CQRS are and how they differ from traditional methods.
+
+# Who has looked into either of these? Show of hands
 
 ---
 class: center, middle
@@ -40,17 +41,18 @@ Pro
 * Strong consistency
 * Easy
 * Safe
-* Totally reasonable for smaller projects
+* Well known
 
 Con
 * Locks and contention
-* Doesn't scale that well
+* Doesn't scale that easily
 
 ???
 
 # SQL is a solid bet, but it can start to fall down at scale
 
 * Especially when we out-grow a single machine
+
 * We scale by sharding & by replication
 * Replication uses a log of events that followers tail
 * Hang on to that idea.
@@ -61,7 +63,6 @@ class: middle
 # 3rd normal form
 * Provide a canonical source for data and relationships
 * Re-combine those into the representations we need
-* Designed to be storage efficient
 * Often a single monolithic model supports all use cases
 
 <!-- ![Giant ERD](images/big-erd.png) -->
@@ -70,9 +71,9 @@ class: middle
 
 # 3NF makes for a compact, duplicate free model, but it leaves a lot for readers to interpret and infer, usually at run time.
 
-We store our data in 3NF to avoid data falling out of sync, and when we need a different view of our data we need to re-constitute it from this 3rd normal form.
+# When we need a different view of our data we need to re-constitute it from this 3rd normal form.
 
-We attempt to capture all representations and use cases in this single model and this can be the source of complexity. We also often end up with a lowest common denominator where our model struggles to meet all needs.
+# We attempt to capture all representations and use cases in this single model and this can be the source of complexity. We also often end up with a lowest common denominator where our model struggles to meet all needs.
 
 ---
 class: middle
@@ -85,7 +86,7 @@ class: middle
 
 ???
 
-# Indexing speeds up read time by keeping alternative lookups for specific read patterns. Comes at the cost of write speed.
+# Indexing speeds up reads by keeping alternative lookups for specific read patterns. Comes at the cost of write speed.
 
 * UI design informs which indexes are important
 * Each index adds cost to write time so that strong consistency is always observed.
@@ -529,6 +530,10 @@ class: middle
 * Eventually consistent
 * Lots more to talk about here.
 
+???
+
+# Process Managers are your tool for coordinating aggregates and reacting to events
+
 ---
 class: middle
 
@@ -571,10 +576,10 @@ end
 ---
 class: middle
 
-# Process Managers as Transactions
+# Process Managers & Transactions
 
 * Coordinates Aggregates
-* PMs are Stateful
+* Can hold state
 * Can crash and be restarted
 * Can involve other systems unlike SQL transactions
 
@@ -585,7 +590,7 @@ class: middle
 ---
 class: middle
 
-# Process Managers as Transactions
+# Process Managers & Transactions
 
 ```elixir
 # Transfer aggregate
@@ -614,6 +619,8 @@ class: middle
 ```
 
 ???
+
+# Here we see an example of coordinating 2 aggregates
 
 ---
 class: middle
@@ -1109,4 +1116,4 @@ Slides: https://drteeth.github.io/elixir-es-cqrs
 
 ???
 
-# That's it for me
+# That's it for me, I hope that gives you a good taste of what ES/CQRS & DDD are about
