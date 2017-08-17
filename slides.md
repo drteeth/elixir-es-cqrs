@@ -1,12 +1,15 @@
 class: center, middle
 
 # Intro to Event Sourcing and CQRS
+### (And a little DDD)
 
 ???
 
 # Exploring what ES/CQRS are and how they differ from traditional methods.
 
 # Who has looked into either of these? Show of hands
+
+# I'm going to tell you
 
 ---
 class: center, middle
@@ -30,7 +33,11 @@ Hi I’m Ben Moss,
 ---
 class: center, middle, inverse
 
-# Motivation: where are we now?
+# Context: where are we now?
+
+???
+
+A brief overview of current practices, so we have something to contrast against when we get to the new stuff.
 
 ---
 class: middle
@@ -38,10 +45,10 @@ class: middle
 # SQL & ACID transactions
 
 Pro
-* Strong consistency
 * Easy
 * Safe
 * Well known
+* Strong consistency
 
 Con
 * Locks and contention
@@ -49,6 +56,7 @@ Con
 
 ???
 
+# For most backend development,
 # SQL is a solid bet, but it can start to fall down at scale
 
 * Especially when we out-grow a single machine
@@ -130,8 +138,6 @@ class: middle
 * Batch model
 * Often denormalized
 * Eventual constiency
-* Possibly stale
-* Slow
 
 ???
 
@@ -150,6 +156,10 @@ class: middle
 * Often an all-or-nothing proposition
 
 ???
+
+TODO: explain this better
+
+Our investment in our general purpose databases often leads us away from syncing
 
 # This is mostly about special use cases and how we often shoe-horn them into a SQL database rather than using a specialized tool. SQL has such a strong hold on our data that sharing it with another DB is untenable.
 
@@ -250,6 +260,219 @@ class: middle
 %RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
 %CartCheckout{}                       # []
 ```
+
+do more slides like this - go a bit slower
+event1 | current state
+event2         v
+event3         v
+event4         v
+
+Show this as the central idea
+then talk about projections piggy-backing on those same events
+In the same way that tracking the events for 1 model allows us to build up it's current state,
+We can also combine the events for several models to derive new information. We call these projections as they project streams of events into new states.
+
+Show an example of events projecting the aggregate state, and 1 or maybe 2 projects (list and detail?)
+
+Walk the evenst through, showing the model changes again.
+But this time, show that we're subscribbing a projection to the events
+Talk about how querying the event store would be slow and painful.
+
+---
+
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+
+# Post models:
+%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 0 },
+]
+
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+  ]
+}
+```
+---
+
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+%Comment{ post_id: 1, body: "Well actually..." }
+
+# Post models:
+%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 1 }, # <--
+]
+
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+    "Well actually...", # <--
+  ]
+}
+```
+---
+
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+%Comment{ post_id: 1, body: "Well actually..." }
+%Comment{ post_id: 1, body: "Did you even read the post?" }
+
+# Post models:
+%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 }, # <--
+]
+
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+    "Well actually...",
+    "Did you even read the post?", # <--
+  ]
+}
+```
+---
+
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+%Comment{ post_id: 1, body: "Well actually..." }
+%Comment{ post_id: 1, body: "Did you even read the post?" }
+%PostSubmitted{ id: body: "Pretzels are delishious" }
+
+# Post models:
+%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+%Post{ id: 2, body: "Pretzels are delishious", status: "normal" } # <--
+
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
+  %{ id: 2, body: "Pretzels considered dangerous", comment_count: 0}, # <--
+]
+
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+    "Well actually...",
+    "Did you even read the post?",
+  ]
+}
+```
+---
+
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+%Comment{ post_id: 1, body: "Well actually..." }
+%Comment{ post_id: 1, body: "Did you even read the post?" }
+%PostSubmitted{ id: body: "Pretzels are delishious" }
+%Comment{ post_id: 2, body: "Just no." }
+
+# Post models:
+%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+%Post{ id: 2, body: "Pretzels are delishious", status: "normal" }
+
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
+  %{ id: 2, body: "Pretzels considered dangerous", comment_count: 1}, # <--
+]
+
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+    "Well actually...",
+    "Did you even read the post?",
+  ]
+}
+```
+---
+name: Stuff
+
+.events[
+```elixir
+%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+%Comment{ post_id: 1, body: "Well actually..." }
+%Comment{ post_id: 1, body: "Did you even read the post?" }
+%PostSubmitted{ id: body: "Pretzels are delishious" }
+%Comment{ post_id: 2, body: "Just no." }
+%PostDeleted{ post_id: 2 }
+```
+]
+
+
+.models[
+```elixir
+# Post models:
+%Post{
+  id: 1,
+  body: "Semicolons considered dangerous",
+  status: "normal"
+}
+%Post{
+  id: 2,
+  body: "Pretzels are delishious",
+  status: "deleted", # <--
+}
+```
+]
+
+
+.index[
+```elixir
+# /posts
+[
+  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
+  # *deleted*
+]
+```
+]
+
+.show[
+```elixir
+# /posts/1
+%{
+  body: "Semicolons considered dangerous",
+  comments: [
+    "Well actually...",
+    "Did you even read the post?",
+  ]
+}
+```
+]
+
+---
+
+Post Aggregate
+
+Post with comments view
+
+Published post list
+
+
+TeamRegistered("The Neckbeards")
+AddPlayerToTeam("Ben", "Mattia", "Justin")
+
+TeamRegistered("The Noodles")
+AddPlayerToTeam("...")
+
+Team | TeamList | Roster
+Team a       noodles
+
+Team b
 
 * State is derived from applying events
 * Current state is lossy
@@ -368,10 +591,28 @@ class: middle
 ---
 class: middle
 
+# Event store:
+
+Durable storage for your events. It's stores events in an append-only way.
+
+* Easy & familiar: A SQL table
+* Purpose built: EventStore
+* Awesome by accident: Kafka/Jocko
+* Optimistic concurrency
+
+???
+
+# The Event store, while central is faily simple
+
+Version numbers are often used to guard against concurrency problems
+
+---
+class: middle
+
 # Command Handlers
 
-* Hydrate ~~an aggregate~~ a model from it's events
 * Accept or reject the command
+* Hydrate ~~an aggregate~~ a model from it's events
 * Based on simple validations
 * Returns a list of events or an error
 * Must be idempotent
@@ -503,24 +744,6 @@ end
 ---
 class: middle
 
-# Event store:
-
-Durable storage for your events. It's stores events in an append-only way.
-
-* Easy & familiar: A SQL table
-* Purpose built: EventStore
-* Awesome by accident: Kafka/Jocko
-* Optimistic concurrency
-
-???
-
-# The Event store, while central is faily simple
-
-Version numbers are often used to guard against concurrency problems
-
----
-class: middle
-
 # Process Managers / Sagas
 * Used to handle business processes
   * Sending email
@@ -578,7 +801,7 @@ class: middle
 
 # Process Managers & Transactions
 
-* Coordinates Aggregates
+* Coordinates models (Aggregates)
 * Can hold state
 * Can crash and be restarted
 * Can involve other systems unlike SQL transactions
@@ -646,11 +869,20 @@ class: middle
 ---
 class: middle, center, inverse
 
-# Interlude: Domain Drive Design in 2 minutes
+# Interlude: Domain Driven Design in 2 minutes
+
+WHY IS THIS RELEVANT?
 
 ???
 
 # Quick detour here to talk about where DDD fits in.
+
+---
+class: middle
+
+Aggregates
+
+Basically, a domain model, but with a few restrictions
 
 ---
 class: middle
@@ -785,6 +1017,10 @@ class: middle
 
 # Features you didn't anticipate
 
+
+# TODO What items were removed from carts?
+# Can we implement un-delete?
+
 ### Un-delete example:
 * Delete as usual: %DeleteWidget { id: 123 }
 * Create a projection which includes deleted widgets
@@ -815,6 +1051,8 @@ class: middle
 
 ```elixir
 date = ~D[2013-08-14]
+
+Make this 2 states and get rid of eric
 
 unspace = Office.hydrate(until: date)
 unspace.status => :lounge_mode_in_effect
