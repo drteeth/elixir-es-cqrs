@@ -3,14 +3,6 @@ class: center, middle
 # Intro to Event Sourcing and CQRS
 ### (And a little DDD)
 
-???
-
-# Exploring what ES/CQRS are and how they differ from traditional methods.
-
-# Who has looked into either of these? Show of hands
-
-# I'm going to tell you
-
 ---
 class: center, middle
 
@@ -31,42 +23,49 @@ Hi I’m Ben Moss,
 * I've done a lot of things in my past, including c# where a lot of these ideas originated.
 
 ---
+class: center, middle
+
+# Intro to Event Sourcing and CQRS
+### (And a little DDD)
+
+???
+
+# We're going to be exploring what ES/CQRS are and how they differ from traditional methods.
+
+# With a quick show of hands, Who has looked into either of these patterns?
+
+---
 class: center, middle, inverse
 
 # Context: where are we now?
 
 ???
 
-A brief overview of current practices, so we have something to contrast against when we get to the new stuff.
+First, a bit of context so we have something to constrast against when we define Event Sourcing and CQRS.
 
 ---
-class: middle
+class:
 
 # SQL & ACID transactions
 
-Pro
+Pros:
+* Well known
 * Easy
 * Safe
-* Well known
 * Strong consistency
 
-Con
+Cons:
 * Locks and contention
 * Doesn't scale that easily
 
 ???
 
-# For most backend development,
-# SQL is a solid bet, but it can start to fall down at scale
+# For most backend development, SQL is a solid bet, but it can start to fall down at scale
 
 * Especially when we out-grow a single machine
 
-* We scale by sharding & by replication
-* Replication uses a log of events that followers tail
-* Hang on to that idea.
-
 ---
-class: middle
+class:
 
 # 3rd normal form
 * Provide a canonical source for data and relationships
@@ -77,14 +76,12 @@ class: middle
 
 ???
 
-# 3NF makes for a compact, duplicate free model, but it leaves a lot for readers to interpret and infer, usually at run time.
+We usually keep our data in 3NF as it gives us a nice duplicate-free model.
 
-# When we need a different view of our data we need to re-constitute it from this 3rd normal form.
-
-# We attempt to capture all representations and use cases in this single model and this can be the source of complexity. We also often end up with a lowest common denominator where our model struggles to meet all needs.
+When we need a different view on our data, we need to build it from this form. Group, Join, etc help us to do this, usually at read time.
 
 ---
-class: middle
+class:
 
 # Indexing
 * Speed up reads by creating alternative indexes behind the scenes
@@ -94,14 +91,18 @@ class: middle
 
 ???
 
-# Indexing speeds up reads by keeping alternative lookups for specific read patterns. Comes at the cost of write speed.
+# When reads get slow, we can add indexes to improve response times.
+
+# Indexing speeds up reads by keeping alternative lookups for specific read patterns.
+
+# This comes at the cost of write speed.
 
 * UI design informs which indexes are important
 * Each index adds cost to write time so that strong consistency is always observed.
 * Hang on to the idea of multiple, domain-informed representations
 
 ---
-class: middle
+class:
 
 # Descent into Dante's caching inferno
 * One of the 2 hard problems in computer science
@@ -114,130 +115,141 @@ class: middle
 # Caching is hard and is often used to make up for slow queries.
 
 ---
-class: middle
+class:
 
 # Searching
 * Offloaded onto Solr/Elastic
 * Outside of transaction boundary
-* No joins allowed
-* Eventually consistent.
+* No joins!
+* Eventually consistent
 
 ???
 
-# Searching is an example of another alternative representation, this time it's eventually consistent and can't participate in transactions.
+# Searching is another example where we need an alternative representation of our data, but this time it's eventually consistent and can't participate in transactions.
 
-* We turn to search engines to provide our user with the searching they expect.
-* These live outside of the safety of our database transactions (yes, I know postgres can do it), and we often turn to application level callbacks to keep them in sync with our system of record (or database).
+* We often turn to application level callbacks to keep them in sync with our system of record (or database).
 * It's also worth mentioning that if we want to join records with the main database, we have to do it at the application level.
 * It's important to note that the sync is eventually consistent
 
 ---
-class: middle
+class:
 
-# Reporting & Analyics
+# Reporting & Analytics
 * Batch model
 * Often denormalized
 * Eventual constiency
 
 ???
 
-# Reporting is another example. It's often done in batch and denormalizes the data. Eventually consistent.
-
-When stakeholders ask for reports, we either join the world in a 15 minute query that brings the server to it's knees or we periodically copy our database into an offline copy that we can work with.
-Either way, we often spend 95% of the time and energy spent going over the same ground we covered last time.
-
----
-class: middle
-
-# Alternative/Specialized data storage
-* Graph-friendly structures
-* GIS
-* 3rd party services (Salesforce, Accounting, etc)
-* Often an all-or-nothing proposition
-
-???
-
-TODO: explain this better
-
-Our investment in our general purpose databases often leads us away from syncing
-
-# This is mostly about special use cases and how we often shoe-horn them into a SQL database rather than using a specialized tool. SQL has such a strong hold on our data that sharing it with another DB is untenable.
-
-Similar to the Searching example, a graph or GIS database might be a better solution, but since the idea of syncing data to yet another database is unpaletteable, we often just force it on our SQL databases.
+# Reporting & Analytics are further examples of alternative representations.
 
 ---
 class: middle, center, inverse
 # What are ES and CQRS then?
 
+???
+
+With that in mind, What are Event Sourcing and CQRS?
+
 ---
-class: middle, center
+class:
 
 # Event sourcing
-##### Store events instead of state.
-##### Rebuild state from events
+
+* Store the list of changes to a model
+* Build that model's current state from those changes
 
 ???
 
 # Instead of mutating the current state, keep a journal of changes from the initial state
 
 ---
-class: middle, center
+class:
 
 # Command-Query Responsibility Segregation
 
-##### Separate Reads from Writes
+* Separate Reads from Writes
+* Queries which return the current state
+* Commands which change that state
+* Don't mix the two
+* May involve 2 different datastores.
 
 ???
 
-# Do queries which return the current state
-
-# Or perform an action that changes that state, not both at the same time
+# CQRS is about spliting our read and write paths. At the code level and maybe even at the data store level
 
 ---
-class: middle
+class:
 
 # What is Event sourcing?
-> "It’s just a left fold over the history of events!" -- Neckbeard McGee
+> "It’s just a left fold over the history of events!" -- Greg Young
 
 ???
 
-# Okay...
+# Now that we've introduced the terms, let's dig into Event Sourcing a bit more.
+
+It's creator, Greg Young reduces it to this quote:
 
 ---
-class: middle
+class:
 
 # What is Event sourcing?
+> "It’s just a left fold over the history of events!" -- Greg Young
 
 ```elixir
-List.foldl(events, initial_state, fn (e, state) ->
+current_state = List.foldl(events, initial_state, fn (e, state) ->
   apply_event(e, to: state)
 end)
 ```
 
 ???
 
-# Greg Young. Reductionist, smart but kind of a dick.
-# Belies the complexity and pitfalls.
+# What does that look like? Hmmm...
 
 ---
-class: middle
+class:
 
 # What is Event sourcing?
+> "It’s just a left fold over the history of events!" -- Greg Young
+
+```elixir
+current_state = List.foldl(events, initial_state, fn (e, state) ->
+  apply_event(e, to: state)
+end)
+```
 
 Thanks for nothing.
 
+???
+
+# While true, it ignores the effect this has on our system. It's a bit too pithy.
+
 ---
-class: middle
+class:
 
 # What is Event sourcing?
 
-> "Accountants don’t use pencils, they use pens." -- Neckbeard McGee
+> "Accountants don’t use pencils, they use pens." -- Greg Young
+
+???
+
+# Next slide
 
 ---
-
-class: middle
+class:
 
 # What is Event sourcing?
+
+> "Accountants don’t use pencils, they use pens." -- Greg Young
+
+Events are immutable
+
+---
+class:
+
+# What is Event sourcing?
+
+> "Accountants don’t use pencils, they use pens." -- Greg Young
 
 Events are immutable
 
@@ -249,7 +261,7 @@ Generate compensating ones to correct mistakes
 # New facts are added the replace older ones.
 
 ---
-class: middle
+class:
 
 # Quick example 1: Shopping cart
 
@@ -261,24 +273,201 @@ class: middle
 %CartCheckout{}                       # []
 ```
 
-do more slides like this - go a bit slower
-event1 | current state
-event2         v
-event3         v
-event4         v
+* State is derived from applying events
+* Keeps the interim steps
 
-Show this as the central idea
-then talk about projections piggy-backing on those same events
-In the same way that tracking the events for 1 model allows us to build up it's current state,
-We can also combine the events for several models to derive new information. We call these projections as they project streams of events into new states.
+???
 
-Show an example of events projecting the aggregate state, and 1 or maybe 2 projects (list and detail?)
+# Here's a quick example to get a feel for how this works
+# They bought apples and pears, but considered buying the pretzels
 
-Walk the evenst through, showing the model changes again.
-But this time, show that we're subscribbing a projection to the events
+---
+class:
+
+# Quick example 2: Bank account
+
+```elixir
+# Events
+%AccountOpened{ id: 1, balance: 100 }
+%Deposited{ id: 1, amount: 20 }
+%AccountOpened{ id: 2, amount: 50 }
+%Withdrew{ id: 1, amount: 80 }
+%Withdrew{ id: 2, amount: 20 }
+
+# Current state
+%Account{ id: 1, balance: 40 }
+%Account{ id: 2, balance: 30 }
+```
+
+* Events have already happened
+* Events are interleaved in time
+
+???
+
+---
+class:
+
+# Kinda like...
+* Git
+* Database replication log
+* Journaling file systems
+
+???
+
+# Applying deltas
+* If you are behind, you can catch up from the last known spot
+* Or even from the start
+
+---
+class: middle, center, inverse
+
+# How can we build a system like this?
+
+---
+class:
+
+# The pieces
+* Commands
+* Events
+* EventStore
+* Command Handlers
+* Projections
+* Process Managers / Sagas
+
+???
+
+# These are building blocks of the pattern
+
+---
+class:
+
+# How it all fits together
+
+![Event Sourcing Diagram](images/event_sourcing_overview.svg)
+
+# Start at command, we'll look at this again in a minute
+
+---
+class:
+
+# Commands
+* Represents some intent
+* Named in the imperative
+
+```elixir
+# Open a new account for a user with an initial balance
+%OpenAccount {
+  account_id: 123,
+  user_id: 54321
+  initial_balance: 10_000,
+}
+```
+
+???
+
+Typically IDs are passed in
+UUIDs are a popular choice for this reason
+
+---
+class:
+
+# Events
+
+* Represents a fact that has happened
+* Named in past tense
+* Often paired with commands
+
+```elixir
+# An account was opened for a user with an initial balance
+%AccountOpened {
+  account_id: 123,
+  initial_balance: 10_000,
+  user_id: 54321,
+  date: ~N[2017-08-24 18:00:00],
+}
+```
+
+---
+class:
+
+# Event store:
+
+Durable storage for your events. It's stores events in an append-only way.
+
+* Easy & familiar: A SQL table
+* Purpose built: EventStore
+* Awesome by accident: Kafka/Jocko
+* Optimistic concurrency
+
+???
+
+# The Event store, while central is faily simple
+
+Version numbers are often used to guard against concurrency problems
+
+---
+class:
+
+# Command Handlers
+
+* Accepts or rejects commands
+* Returns a list of events or an error
+* Must be idempotent
+
+```elixir
+defmodule AccountHandler do
+  def handle(&Account{} = account, %OpenAccount{} = command) do
+    if account.open do
+      {:error, :account_already_open}
+    else
+      event = %AccountOpened {
+        account_id: command.account_id,
+        client_id: command.client_id,
+      }
+      {:ok, [event]}
+    end
+  end
+  def handle(&Account{} = account, %Deposit{} = command) do
+    ...
+  end
+end
+```
+
+???
+
+# Command handlers accept commands and turn them into new events
+
+* Validations - Simple and fast only - No DB/ No Blocking
+* Error or list of events (probably involving the aggregate)
+* Must be idempotent so they can be retried
+
+---
+class:
+
+# Projections
+
+* Listen for events from many streams
+* Derive new data
+* Combine facts sort of like a SQL Join would
+* Kind of like a SQL view, but materialized
+* Often in service of a specific view
+* Denormalized
+* Can be Sync or Async
+* Eventualy consistent
+
+???
+
+# Projections use events to create your read models.
+
+In the same way that tracking the events for 1 model allows us to build up it's current state, we can also combine the events for several models to derive new information.
+
+We call these projections as they project streams of events into new states.
+
 Talk about how querying the event store would be slow and painful.
 
 ---
+
+# Projections
 
 ```elixir
 %PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
@@ -455,230 +644,18 @@ name: Stuff
 ]
 
 ---
+class:
 
-Post Aggregate
-
-Post with comments view
-
-Published post list
-
-
-TeamRegistered("The Neckbeards")
-AddPlayerToTeam("Ben", "Mattia", "Justin")
-
-TeamRegistered("The Noodles")
-AddPlayerToTeam("...")
-
-Team | TeamList | Roster
-Team a       noodles
-
-Team b
-
-* State is derived from applying events
-* Current state is lossy
-* Events have the full picture
-
-???
-
-# They bought apples and pears, but considered buying the pretzels
-
----
-class: middle
-
-# Quick example 2: Bank account
-
-```elixir
-# Events
-%AccountOpened{ id: 1, balance: 100 }
-%Deposited{ id: 1, amount: 20 }
-%AccountOpened{ id: 2, amount: 50 }
-%Withdrew{ id: 1, amount: 80 }
-%Withdrew{ id: 2, amount: 20 }
-
-# Current state
-%Account{ id: 1, balance: 40 }
-%Account{ id: 2, balance: 30 }
-```
-
-* Events have already happened
-* Events are interleaved in time
-
-???
-
----
-class: middle
-
-# Kinda like...
-* Git
-* Database replication log
-* Journaling file systems
-
-???
-
-# Applying deltas
-* If you are behind, you can catch up from the last known spot
-* Or even from the start
-
----
-class: middle, center, inverse
-
-# How does it work?
-
----
-class: middle
-
-# The pieces
-* Commands
-* Command Handlers
-* Events
-* EventStore
-* Projections
-* Process Managers / Sagas
-
-???
-
-# These are building blocks of the pattern
-
----
-class: middle
-
-# How it all fits together
-
-![Event Sourcing Diagram](images/event_sourcing_overview.svg)
-
-# Start at command, we'll look at this again in a minute
-
----
-class: middle
-
-# Commands
-* Represents some intent
-* Named in the imperative
-
-```elixir
-# Open a new account for a user with an initial balance
-%OpenAccount {
-  account_id: 123,
-  user_id: 54321
-  initial_balance: 10_000,
-}
-```
-
-???
-
-Typically IDs are passed in
-UUIDs are a popular choice for this reason
-
----
-class: middle
-
-# Events
-
-* Represents a fact that has happened
-* Named in past tense
-* Often paired with commands
-
-```elixir
-# An account was opened for a user with an initial balance
-%AccountOpened {
-  account_id: 123,
-  initial_balance: 10_000,
-  user_id: 54321,
-  date: ~N[2017-08-24 18:00:00],
-}
-```
-
----
-class: middle
-
-# Event store:
-
-Durable storage for your events. It's stores events in an append-only way.
-
-* Easy & familiar: A SQL table
-* Purpose built: EventStore
-* Awesome by accident: Kafka/Jocko
-* Optimistic concurrency
-
-???
-
-# The Event store, while central is faily simple
-
-Version numbers are often used to guard against concurrency problems
-
----
-class: middle
-
-# Command Handlers
-
-* Accept or reject the command
-* Hydrate ~~an aggregate~~ a model from it's events
-* Based on simple validations
-* Returns a list of events or an error
-* Must be idempotent
-
-```elixir
-defmodule AccountHandler do
-  def handle(%OpenAccount{} = command) do
-    # Load the events for this account from the store
-    stream = "account_#{command.account_id}"
-    events = event_store.load_events(stream)
-
-    # replay the events (re-hydrate the account)
-    account = List.foldl(events, %Account{}, &Account.apply/2)
-
-    # now use it to validate the incoming command
-    if account.open do
-      {:error, :account_already_open}
-    else
-      # return 0, 1, or many events
-      event = %AccountOpened { account_id: 123 }
-      {:ok, [event]}
-    end
-  end
-  def handle(%Deposit{} = command), do: []
-end
-```
-
-???
-
-# Command handlers accept commands and turn them into new events
-
-* Validations - Simple and fast only - No DB/ No Blocking
-* Error or list of events (probably involving the aggregate)
-* Must be idempotent so they can be retried
-
----
-class: middle
-
-# Projections / Event handlers
-
-* Listen for events from many streams
-* Derive new data
-* Combine facts sort of like a SQL Join would
-* Kind of like a SQL view, but materialized
-* Often in service of a specific view
-* Denormalized
-* Can be Sync or Async
-* Eventualy consistent.
-
-???
-
-# Projections use events to create your read models.
-
----
-class: middle
-
-# Combine streams to derive new states
+# Another Projection
 
 
 ```elixir
 %CustomerRegistered { customer_id: 1, name: "Lola Gheda" }
-%AccountOpened { account_id: 1, customer_id: 1 }
-%Deposited { account_id: 1, amount: 200 }
+%AccountOpened { account_id: 1, customer_id: 1, initial_balance: 100 }
+%Deposited { account_id: 1, amount: 100 }
 
 %CustomerRegistered { customer_id: 2, name: "Mattia Gheda" }
-%AccountOpened { account_id: 2, customer_id: 2 }
+%AccountOpened { account_id: 2, customer_id: 2, initial_balance: 0 }
 %Deposited { account_id: 2, amount: 100 }
 %Withdrew { account_id: 2, amount: 100 }
 ```
@@ -698,7 +675,7 @@ id | customer_name | balance | status
 * Note that here you can infer data such as the status column
 
 ---
-class: middle
+class:
 
 ```elixir
 defmodule AccountBalanceProjection do
@@ -708,7 +685,7 @@ defmodule AccountBalanceProjection do
   end
 
   def handle(%AccountOpened{} = e) do
-   db.update(e.customer_id, balance: 0)
+   db.update(e.customer_id, balance: e.initial_balance)
   end
 
   def handle(%Deposited{} = e) do
@@ -742,14 +719,13 @@ end
 * This is the big win here - You can really run with this idea - more later
 
 ---
-class: middle
+class:
 
 # Process Managers / Sagas
 * Used to handle business processes
   * Sending email
   * Long-running processes
 * Projection + can emit commands
-* Guard side effects against replays
 * Eventually consistent
 * Lots more to talk about here.
 
@@ -758,7 +734,7 @@ class: middle
 # Process Managers are your tool for coordinating aggregates and reacting to events
 
 ---
-class: middle
+class:
 
 # A Process manager
 
@@ -783,7 +759,7 @@ defmodule Welcomer do
 
   defp send_welcome_email(e) do
     db.insert(account) # remember the account for next time
-    mailer.send_welcome_email(e.email) # Don't do this on replay!
+    mailer.send_welcome_email(e.email)
     [] # no commands
   end
 end
@@ -797,11 +773,11 @@ end
 * Beware of replays and side effects
 
 ---
-class: middle
+class:
 
 # Process Managers & Transactions
 
-* Coordinates models (Aggregates)
+* Coordinates models
 * Can hold state
 * Can crash and be restarted
 * Can involve other systems unlike SQL transactions
@@ -811,34 +787,28 @@ class: middle
 # Sometimes the system needs to watch over a series of events and commands and react to what it sees.
 
 ---
-class: middle
+class:
 
 # Process Managers & Transactions
 
 ```elixir
-# Transfer aggregate
-%Transfer.Request{ tx_id: 1, from: 123, to: 456, amount: 100 }
+# listen for:
+%Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
 
-  # listen for:
-  %Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
+# emit:
+%Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
 
-  # emit:
-  %Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
+# listen for:
+%Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
 
-  # listen for:
-  %Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
+# emit:
+%Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
 
-  # emit:
-  %Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
+# listen for:
+%Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
 
-  # listen for:
-  %Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
-
-  # emit:
-  %Transfer.Complete{ tx_id: 1, status: :ok }
-
-# Transfer aggregate could emit
-%Transfer.Completed{ tx_id: 1, status: :ok }
+# emit:
+%Transfer.Complete{ tx_id: 1, status: :ok }
 ```
 
 ???
@@ -846,7 +816,7 @@ class: middle
 # Here we see an example of coordinating 2 aggregates
 
 ---
-class: middle
+class:
 
 # How it all fits together
 
@@ -871,23 +841,21 @@ class: middle, center, inverse
 
 # Interlude: Domain Driven Design in 2 minutes
 
-WHY IS THIS RELEVANT?
-
 ???
 
-# Quick detour here to talk about where DDD fits in.
+# We're going to take a super quick detour here to talk about DDD as many of the things it has to say apply really well to ES/CQRS
 
 ---
-class: middle
+class:
 
-Aggregates
+# Aggregate
 
-Basically, a domain model, but with a few restrictions
+Basically a domain model, but with a few restrictions.
 
 ---
-class: middle
+class:
 
-# DDD Crash Course
+# Aggregate
 
 ```elixir
 
@@ -897,6 +865,7 @@ class: middle
 }
 
 %Order {
+  id: 456,
   customer_id: 123, # Reference to another aggregate,
   items: [
     %Item{ item_id: 1, price: 100 },
@@ -906,48 +875,50 @@ class: middle
 
 ```
 
-* Came from OOP in 2003
-* Order and Customer are Aggregate Roots (in this example)
+* Order and Customer are Aggregates (in this example)
 * Item is not a root, Order owns it.
 * May refer to other aggregates by ID only
 * You may not hold references to other aggregates
 
 ???
 
-# Aggregates are domain models with a twist
-
-* Origins in OOP in 2003, Eric Evans
-* Briefly mention that Customer may or may not be part of the aggregate
-
 ---
-class: middle
+class:
 
-# Aggregate Root
+# Aggregate
 
 * Control access to children
-* Transaction boundary
+* Provide a transaction boundary
 * Maintain invariants
 * Serialize access with GenServer
 
+---
+class:
+
+# Aggregate
+
 ```elixir
-# Maintain invariants over it's children
-# Order is the root here, LineItems are children
 defmodule Order do
   use GenServer
 
-  def create(id, max_cost) do
-    # create an order row in the db
+  defstruct id: nil, max_cost: 0, total: 0, items: []
+
+  def handle_cast({:create, id, max_cost}, _from, _) do
+    {:noreply, %Order{id: id, max_cost: max_cost}}
   end
 
-  def add_item(item) do
-    # freak out if we'd blow the budget
-    # create a line_item row in the db
-    # update total cost
+  def handle_cast({:add_item, item}, _from, order) do
+    new_total = order.total + item.cost
+    if new_total > order.max_cost do
+      raise "freak out"
+    else
+      new_items = [ item | order.items ]
+      {:noreply, %{order | total: new_total, items: new_items}}
+    end
   end
 
   def remove_item(item) do
-    # remove a line_item row in the db
-    # update total cost
+    # update total, remove the item...
   end
 end
 ```
@@ -958,7 +929,7 @@ end
 * Elixir is a really good fit here.
 
 ---
-class: middle
+class:
 
 # Chaos
 
@@ -987,13 +958,11 @@ class: middle, center, inverse
 ???
 
 ---
-class: middle
+class:
 
 # Audit Trail / Logging
 * How did my model get into this state?
 * Guaranteed to be correct & complete
-* Breadcrumbs
-* Bug in the process manager? Fix + replay
 
 ```elixir
 # How did we get here??
@@ -1013,38 +982,7 @@ class: middle
 # Ever look at a record in the database and wonder how it got into the state it's in?
 
 ---
-class: middle
-
-# Features you didn't anticipate
-
-
-# TODO What items were removed from carts?
-# Can we implement un-delete?
-
-### Un-delete example:
-* Delete as usual: %DeleteWidget { id: 123 }
-* Create a projection which includes deleted widgets
-* Emit %UndeleteWidget { id: 123 }
-* Update other projections to re-admit undeleted widgets
-
-???
-
-# By storing intent, we don't lose info that we can act on later.
-
----
-class: middle
-
-# Features you didn't anticipate
-
-### Similarly:
-* Undo.
-* Versioning
-* Publishing
-
-???
-
----
-class: middle
+class:
 
 # Time-travel debugging
 
@@ -1052,19 +990,11 @@ class: middle
 ```elixir
 date = ~D[2013-08-14]
 
-Make this 2 states and get rid of eric
-
 unspace = Office.hydrate(until: date)
 unspace.status => :lounge_mode_in_effect
-unspace.people_inside => [:eric]
 
 unspace = unspace |> Office.apply(%PinballRelatedIncidentHappened{})
 unspace.status => :literally_on_fire
-unspace.people_inside => [:eric]
-
-unspace = unspace |> Office.apply(%BossModeEngaged{hero: :eric})
-unspace.status => :even_more_on_fire
-unspace.people_inside => []
 ```
 
 ???
@@ -1074,15 +1004,14 @@ unspace.people_inside => []
 # Reports!
 
 ---
-class: middle
+class:
 
-# Fast and simple reads
-* Tailored to the each use case
+# Reading from projectsion is fast and simple
 * Denormalized
-* No joining or grouping
+* Joining and Grouping already done
+* Tailored to the each use case
 * Optimized for reading
-* Like ViewModels
-* No need for an ORM
+* So simple, you don't need an ORM
 
 ```sql
 -- index page
@@ -1091,31 +1020,52 @@ select * from post_index limit 100;
 -- detail page
 select * from posts_with_comments_and_authors where post_id = 123;
 
-````
+```
 
 ???
 
 # Reading from projections is fast and easy.
 
 ---
-class: middle
+class:
 
-# Read side and write side can be different DBs:
-* Denormalized SQL tables
-* NoSQL Documents
-* Search Engine queries
-* GraphDB queries
-* Generate flat text files and serve them statically
-* Generate markdown and publish those via jekyll/hugo
-* Binary blobs (generated images, serialized protobuf, etc)
-* Just keep it in memory - Who needs a disk?
+# Caching
 
-???
-
-# Projecting datas in this way opens up new possibilies
+* No longer needed?
 
 ---
-class: middle
+class:
+
+# Caching
+
+* Not as needed?
+
+---
+class:
+
+# Caching
+
+* Just kidding - it is a cache!
+
+---
+class:
+
+# Caching
+
+* Just kidding - it is a cache!
+* It's a perfect cache
+
+---
+class:
+
+# Caching
+
+* Just kidding - it is a cache!
+* It's a perfect cache
+* That knows exactly when and how to invalidate itself
+
+---
+class:
 
 # Feed auxilary services
 
@@ -1130,60 +1080,41 @@ Projections can be used to keep auxilary services in sync:
 # More possibilities
 
 ---
-class: middle
+class:
+
+# Read and write sides can be different
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+* Generate markdown and publish those via jekyll/hugo
+* Binary blobs (generated images, serialized protobuf, etc)
+* Just keep it in memory - Who needs a disk?
+
+### Write side
+* A SQL table
+
+???
+
+# Projecting datas in this way opens up new possibilies
+
+---
+class:
 
 # Fast writes
 * Append-only
 * No contention
 * Just the facts
-* Defer expensive work until we've accepted the write
-  * Allows the system to move on to the next write
-  * Allows the caller to move on if they want
 
 ???
 
 # Writes are fast and uncomplicated
 
 ---
-class: middle
-
-# Caching
-
-* No longer needed?
-
----
-class: middle
-
-# Caching
-
-* Not as needed?
-
----
-class: middle
-
-# Caching
-
-* Just kidding - it is a cache!
-
----
-class: middle
-
-# Caching
-
-* Just kidding - it is a cache!
-* It's a perfect cache
-
----
-class: middle
-
-# Caching
-
-* Just kidding - it is a cache!
-* It's a perfect cache
-* That knows exactly when and how to invalidate itself
-
----
-class: middle
+class:
 
 # Scaling
 
@@ -1194,13 +1125,14 @@ class: middle
 
 
 ---
-class: middle
+class:
 
 # Scaling
 
 ### Writes are harder to scale, but still possible
 * Shard on aggregate type
 * Shard on aggregate id
+* Kafka
 
 ???
 
@@ -1209,22 +1141,47 @@ class: middle
 * Replicating write stores
 
 ---
-class: middle
+class:
+
+# Features you didn't anticipate
+
+### Un-delete example:
+* Delete as usual: %DeleteWidget { id: 123 }
+* Create a projection which includes deleted widgets
+* Emit %UndeleteWidget { id: 123 }
+
+???
+
+# By storing intent, we don't lose info that we can act on later.
+
+---
+class:
+
+# Features you didn't anticipate
+
+### Similarly:
+* Undo.
+* Versioning
+* Publishing
+
+???
+
+---
+class:
 
 # Microservices in brief
 * Pretty good fit here.
 * Instead of services querying each other, just tail and emit events.
-* Very resilient
-* Events can be shared with an event bus (Kafka is popular in the space)
-* You are giving up consistency anyway
-* DDD: Bounded Context
+* Resilient to upstream outages (they have their own cache)
+* Kafka is popular in the space as a distributed log
+* Eventually consistent anyway...
 
 ???
 
 # Without dragging in the kitchen sink...
 
 ---
-class: middle
+class:
 
 # Resilient
 * So long as event are stored, you can get your state back.
@@ -1241,14 +1198,55 @@ class: middle, center, inverse
 # Knee-jerk concerns and misconceptions:
 
 ---
-class: middle
+class:
+
+### Won't there be like a bajillion events per second?
+* People always think about their webserver logs. It's slower than that
+
+---
+class:
 
 ### Won't there be like a bajillion events per second?
 * People always think about their webserver logs. It's slower than that
 * But it can still be a lot.
 
 ---
-class: middle
+class:
+
+### Isn't re-loading all of the events from the beginning of time slow?
+
+---
+class:
+
+### Isn't re-loading all of the events from the beginning of time slow?
+* Just the events for 1 aggregate
+
+---
+class:
+
+### Isn't re-loading all of the events from the beginning of time slow?
+* Just the events for 1 aggregate
+* Tends to be in the < 1000 range
+
+---
+class:
+
+### Isn't re-loading all of the events from the beginning of time slow?
+* Just the events for 1 aggregate
+* Tends to be in the < 1000 range
+* Snapshots are an option
+
+---
+class:
+
+### Isn't re-loading all of the events from the beginning of time slow?
+* Just the events for 1 aggregate
+* Tends to be in the < 1000 range
+* Snapshots are an option
+* Maybe you have the wrong aggregate boundary
+
+---
+class:
 
 ### Isn't re-loading all of the events from the beginning of time slow?
 * Just the events for 1 aggregate
@@ -1258,16 +1256,40 @@ class: middle
 * Avoid God streams (Don't hang everything off of user)
 
 ---
-class: middle
+class:
+
+### Doesn't this take more disk space?
+
+---
+class:
 
 ### Doesn't this take more disk space?
 * Yep. Deal with it, disk is cheap.
 
 ---
-class: middle
+class:
 
 ### Doesn't async make everything hard?
-* It suuuure can. Not a requirement.
+
+---
+class:
+
+### Doesn't async make everything hard?
+* It suuuure can.
+
+---
+class:
+
+### Doesn't async make everything hard?
+* It suuuure can.
+* Not a requirement.
+
+---
+class:
+
+### Doesn't async make everything hard?
+* It suuuure can.
+* Not a requirement.
 * Totally reasonable to mix sync and async
 
 ---
@@ -1276,7 +1298,7 @@ class: middle, center, inverse
 # How do we do it?
 
 ---
-class: middle
+class:
 
 # Elixir
 * GenServer is a great model for an Aggregate.
@@ -1297,7 +1319,7 @@ Great tools for managing concurrency and serialization
 Even though this pattern came from the OOP world, a functional approach really works well and Elixir's flavour works particularly well.
 
 ---
-class: middle
+class:
 
 # Commanded
 ### [github.com/slashdotdash/commanded](https://github.com/slashdotdash/commanded)
@@ -1311,34 +1333,30 @@ class: middle
 # We'll look at an implementation with this library next time
 
 ---
-class: middle
+class:
 
 # Implementing
-* You can go slow:
+* You can go slow
+* Not an all-or-nothing proposition
+  * Only some models
 * Fire events from traditional setup
 * Start building out projections
 * Replace reads on old model with reads on projected data once it matches
-* Replace aggregate state with events
 
 ???
 
 # Implementing ES/CQRS can be daunting but you can go slowly.
 
-You can opt in slowly, you don’t have to go all in. Fire events > recreate your existing models in a new table, compare.
-Don’t have to have your whole system use ES or CQRS.
-Dial it in
-
-
 ---
-class: middle
+class:
 
 ## All in?
 * Good for larger projects
   * Bye-bye transactions anyway, may as well get something for it
 * Good for smaller/medium?
   * Unclear to me still
-  * Not all-or-nothing (Sync, only some models, etc)
-* Next time: Code + my adventures with Commanded
+* Next time:
+  * Code + my adventures with Commanded
 
 ???
 
