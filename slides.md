@@ -466,182 +466,217 @@ We call these projections as they project streams of events into new states.
 Talk about how querying the event store would be slow and painful.
 
 ---
+class:
 
-# Projections
+# A Projection
 
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
+![Event Sourcing Diagram](images/es_cqrs_projection_1.svg)
 
-# Post models:
-%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+???
 
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 0 },
-]
+* On the left, the read side, we have our event store, which is empty
+* We have 2 projections that will tail the event log
+* PostIndex will be an index of posts with the comment count
+* PostDetail will be a detail view with post and comment bodies
+  * PostDetail will focus on a single entry for clarity
 
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-  ]
-}
-```
 ---
+class:
 
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
-%Comment{ post_id: 1, body: "Well actually..." }
+# A Projection
 
-# Post models:
-%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+![Event Sourcing Diagram](images/es_cqrs_projection_2a.svg)
 
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 1 }, # <--
-]
+???
 
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-    "Well actually...", # <--
-  ]
-}
-```
+A post is submitted
+
 ---
+class:
 
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
-%Comment{ post_id: 1, body: "Well actually..." }
-%Comment{ post_id: 1, body: "Did you even read the post?" }
+# A Projection
 
-# Post models:
-%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
+![Event Sourcing Diagram](images/es_cqrs_projection_2b.svg)
 
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 }, # <--
-]
+???
 
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-    "Well actually...",
-    "Did you even read the post?", # <--
-  ]
-}
-```
+It's current state looks like this
+
 ---
+class:
 
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
-%Comment{ post_id: 1, body: "Well actually..." }
-%Comment{ post_id: 1, body: "Did you even read the post?" }
-%PostSubmitted{ id: body: "Pretzels are delishious" }
+# A Projection
 
-# Post models:
-%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
-%Post{ id: 2, body: "Pretzels are delishious", status: "normal" } # <--
+![Event Sourcing Diagram](images/es_cqrs_projection_2c.svg)
 
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
-  %{ id: 2, body: "Pretzels considered dangerous", comment_count: 0}, # <--
-]
+???
 
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-    "Well actually...",
-    "Did you even read the post?",
-  ]
-}
-```
+The index projection picks up the event and updates it's cache
+
 ---
+class:
 
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
-%Comment{ post_id: 1, body: "Well actually..." }
-%Comment{ post_id: 1, body: "Did you even read the post?" }
-%PostSubmitted{ id: body: "Pretzels are delishious" }
-%Comment{ post_id: 2, body: "Just no." }
+# A Projection
 
-# Post models:
-%Post{ id: 1, body: "Semicolons considered dangerous", status: "normal" }
-%Post{ id: 2, body: "Pretzels are delishious", status: "normal" }
+![Event Sourcing Diagram](images/es_cqrs_projection_2d.svg)
 
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
-  %{ id: 2, body: "Pretzels considered dangerous", comment_count: 1}, # <--
-]
+???
 
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-    "Well actually...",
-    "Did you even read the post?",
-  ]
-}
-```
+Followed by the detail projection
+
 ---
-name: Stuff
+class:
 
-.events[
-```elixir
-%PostSubmitted{ id: 1, body: "Semicolons considered dangerous" }
-%Comment{ post_id: 1, body: "Well actually..." }
-%Comment{ post_id: 1, body: "Did you even read the post?" }
-%PostSubmitted{ id: body: "Pretzels are delishious" }
-%Comment{ post_id: 2, body: "Just no." }
-%PostDeleted{ post_id: 2 }
-```
-]
+# A Projection
 
+![Event Sourcing Diagram](images/es_cqrs_projection_3a.svg)
 
-.models[
-```elixir
-# Post models:
-%Post{
-  id: 1,
-  body: "Semicolons considered dangerous",
-  status: "normal"
-}
-%Post{
-  id: 2,
-  body: "Pretzels are delishious",
-  status: "deleted", # <--
-}
-```
-]
+???
 
+When a comment is added...
 
-.index[
-```elixir
-# /posts
-[
-  %{ id: 1, body: "Semicolons considered dangerous", comment_count: 2 },
-  # *deleted*
-]
-```
-]
+---
+class:
 
-.show[
-```elixir
-# /posts/1
-%{
-  body: "Semicolons considered dangerous",
-  comments: [
-    "Well actually...",
-    "Did you even read the post?",
-  ]
-}
-```
-]
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_3b.svg)
+
+???
+
+Comment count is updated in the index projection,
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_3c.svg)
+
+???
+
+And the body is added to the detail projection
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_4a.svg)
+
+???
+
+Another comment
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_4b.svg)
+
+???
+
+Update the count
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_4c.svg)
+
+???
+
+Add the body
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_5a.svg)
+
+???
+
+A second post is made
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_5b.svg)
+
+???
+
+It's state looks like this
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_5c.svg)
+
+???
+
+A new element is added to the index
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_6a.svg)
+
+???
+
+A comment is made on the 2nd post
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_6b.svg)
+
+???
+
+It's comment count is updated
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_7a.svg)
+
+???
+
+When the 2nd post is deleted...
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_7b.svg)
+
+???
+
+It's status is updated
+
+---
+class:
+
+# A Projection
+
+![Event Sourcing Diagram](images/es_cqrs_projection_7c.svg)
+
+???
+
+It's removed from the index, and we're done.
 
 ---
 class:
@@ -718,6 +753,8 @@ end
 * Single threaded - you are free to do normal read/write SQL stuff here.
 * This is the big win here - You can really run with this idea - more later
 
+Questions about projections?
+
 ---
 class:
 
@@ -775,6 +812,27 @@ end
 ---
 class:
 
+# How it all fits together
+
+![Event Sourcing Diagram](images/event_sourcing_overview.svg)
+
+???
+
+* A Command is sent
+* The command handler accepts it an generates one or more events
+* These events are stored in the store
+* The events are published
+* A Projection subscribes to one or more events and maintains a projection
+* Queries read from projections
+* Process managers also subscribe to events
+* And they may feed new commands back into the system
+
+#### Blue: Write-side
+#### Green: Read-side
+
+---
+class:
+
 # Process Managers & Transactions
 
 * Coordinates models
@@ -814,27 +872,6 @@ class:
 ???
 
 # Here we see an example of coordinating 2 aggregates
-
----
-class:
-
-# How it all fits together
-
-![Event Sourcing Diagram](images/event_sourcing_overview.svg)
-
-???
-
-* A Command is sent
-* The command handler accepts it an generates one or more events
-* These events are stored in the store
-* The events are published
-* A Projection subscribes to one or more events and maintains a projection
-* Queries read from projections
-* Process managers also subscribe to events
-* And they may feed new commands back into the system
-
-#### Blue: Write-side
-#### Green: Read-side
 
 ---
 class: middle, center, inverse
