@@ -267,6 +267,65 @@ class:
 
 ```elixir
 %AddedToCart{ item: "apples" }        # ["apples"]
+```
+
+???
+
+# Here's a quick example to get a feel for how this works
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+```
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+```
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+%RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
+```
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+%RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
+%CartCheckout{}                       # []
+```
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
 %AddedToCart{ item: "pears" }         # ["apples", "pears"]
 %AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
 %RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
@@ -274,12 +333,39 @@ class:
 ```
 
 * State is derived from applying events
-* Keeps the interim steps
 
-???
+---
+class:
 
-# Here's a quick example to get a feel for how this works
-# They bought apples and pears, but considered buying the pretzels
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+%RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
+%CartCheckout{}                       # []
+```
+
+* State is derived from applying events
+* We keep the full history:
+
+---
+class:
+
+# Quick example 1: Shopping cart
+
+```elixir
+%AddedToCart{ item: "apples" }        # ["apples"]
+%AddedToCart{ item: "pears" }         # ["apples", "pears"]
+%AddedToCart{ item: "pretzels" }      # ["apples, "pears", "pretzels"]
+%RemovedFromCart{ item: "pretzels" }  # ["apples", "pears"]
+%CartCheckout{}                       # []
+```
+
+* State is derived from applying events
+* We keep the full history:
+* They bought apples and pears, but considered buying the pretzels
 
 ---
 class:
@@ -327,31 +413,19 @@ class: middle, center, inverse
 class:
 
 # The pieces
-* Commands
-* Events
-* EventStore
-* Command Handlers
-* Projections
-* Process Managers / Sagas
+
+![Event Sourcing Diagram](images/event_sourcing_overview_0.svg)
 
 ???
 
-# These are building blocks of the pattern
-
----
-class:
-
-# How it all fits together
-
-![Event Sourcing Diagram](images/event_sourcing_overview.svg)
-
-# Start at command, we'll look at this again in a minute
+# These are the building blocks of the pattern, and we'll go over each piece
 
 ---
 class:
 
 # Commands
-* Represents some intent
+
+* Represent some intent
 * Named in the imperative
 
 ```elixir
@@ -363,10 +437,12 @@ class:
 }
 ```
 
+![Event Sourcing Diagram](images/event_sourcing_overview_1.svg)
+
 ???
 
-Typically IDs are passed in
-UUIDs are a popular choice for this reason
+A command represents a request for change in the system.
+
 
 ---
 class:
@@ -387,23 +463,29 @@ class:
 }
 ```
 
+![Event Sourcing Diagram](images/event_sourcing_overview_2.svg)
+
+???
+
+An event represent a change that has already happened in the system.
+
 ---
 class:
 
 # Event store:
 
-Durable storage for your events. It's stores events in an append-only way.
+* Durable storage for your events.
+* Append-only
+* Events are split up into "streams"
 
-* Easy & familiar: A SQL table
-* Purpose built: EventStore
-* Awesome by accident: Kafka/Jocko
-* Optimistic concurrency
+```elixir
+  EventStore.publish(event, stream_name: "account_123")
+```
 
+![Event Sourcing Diagram](images/event_sourcing_overview_3.svg)
 ???
 
-# The Event store, while central is faily simple
-
-Version numbers are often used to guard against concurrency problems
+We store our events in an event store, which is just an append-only log categorized by some string name.
 
 ---
 class:
@@ -411,7 +493,14 @@ class:
 # Command Handlers
 
 * Accepts or rejects commands
-* Returns a list of events or an error
+* Returns a list of events or an error tuple
+
+![Event Sourcing Diagram](images/event_sourcing_overview_4.svg)
+
+---
+class:
+
+# Command Handlers
 
 ```elixir
 defmodule AccountHandler do
@@ -436,8 +525,7 @@ end
 
 # Command handlers accept commands and turn them into new events
 
-* Validations - Simple and fast only - No DB/ No Blocking
-* Error or list of events (probably involving the aggregate)
+Here we can see that the handler is passed an account and a command to open an account, if the account is already open, we return an error tuple, otherwise we return a list of events to apply to the account. In this case a single event: AccountOpened.
 
 ---
 class:
@@ -446,19 +534,21 @@ class:
 
 * Listen for events from many streams
 * Derive new data
-* Combine facts sort of like a SQL Join would
-* Kind of like a SQL view, but materialized
-* Often in service of a specific view
+* Stateful
+* Similar to SQL Join, Group By and Views but materialized
+* Often in service of a specific view, like a SQL index might be
 * Denormalized
 * Can be Sync or Async
-* Eventualy consistent
+
+![Event Sourcing Diagram](images/event_sourcing_overview_5.svg)
 
 ???
 
-In the same way that tracking the events for 1 model allows us to build up it's current state, we can also combine the events for several models to derive new information.
+In the same way that tracking the events for 1 model allows us to build up it's current state, we can also track events for multiple models and combine them to produce new views on our data.
 
 We call these projections as they project streams of events into new states.
 
+This where we can do our joining and grouping and filtering.
 
 ---
 class:
@@ -469,11 +559,10 @@ class:
 
 ???
 
-* On the left, the read side, we have our event store, which is empty
-* We have 2 projections that will tail the event log
-* PostIndex will be an index of posts with the comment count
-* PostDetail will be a detail view with post and comment bodies
-  * PostDetail will focus on a single entry for clarity
+* On the left, we have our event store, which is empty
+* On the right, we have 2 projections that will tail the event log
+* PostIndex will be an index of posts with their comment counts
+* PostDetail will show the post and comment bodies for a single post
 
 ---
 class:
@@ -484,7 +573,7 @@ class:
 
 ???
 
-A post is submitted
+First, a post is submitted
 
 ---
 class:
@@ -594,7 +683,7 @@ class:
 
 ???
 
-A second post is made
+When a second post is made,
 
 ---
 class:
@@ -627,7 +716,7 @@ class:
 
 ???
 
-A comment is made on the 2nd post
+A comment is made on this new post
 
 ---
 class:
@@ -649,7 +738,7 @@ class:
 
 ???
 
-When the 2nd post is deleted...
+Next, the 2nd post is deleted
 
 ---
 class:
@@ -673,11 +762,12 @@ class:
 
 It's removed from the index, and we're done.
 
+We can see from this how projections listen to events to group, count and join our data into new forms.
+
 ---
 class:
 
 # Another Projection
-
 
 ```elixir
 %CustomerRegistered { customer_id: 1, name: "Lola the Dog" }
@@ -698,11 +788,12 @@ id | customer_name | balance | status
 
 ???
 
-# Here the events are projected into a SQL table
+# Here is another example
 
-* Inserting and updating a SQL table in this example
-* Denormalize data for specific use cases
+2 bank acounts are opened, 1 for Lola the dog and 1 for Mattia. A Projection would combine these events into the roll-up you see here.
+
 * Note that here you can infer data such as the status column
+* And that the data is denormalized for a specific use case.
 
 ---
 class:
@@ -744,9 +835,11 @@ end
 
 ???
 
-* This database is logically or physically separate from the command store.
-* Single threaded - you are free to do normal read/write SQL stuff here.
-* This is the big win here - You can really run with this idea - more later
+# Here is a rough idea of what the code might look like for this last example
+
+It's important to note that:
+* The database here is logically or physically separate from the command store.
+* You are free to do normal read/write SQL stuff here.
 
 Questions about projections?
 
@@ -754,12 +847,14 @@ Questions about projections?
 class:
 
 # Process Managers / Sagas
-* Used to handle business processes
-  * Sending email
-  * Long-running processes
+
 * Projection + can emit commands
+* Used to handle business processes
+* Or effectful tasks (like sending an email)
 * Eventually consistent
 * Lots more to talk about here.
+
+![Event Sourcing Diagram](images/event_sourcing_overview_6.svg)
 
 ???
 
@@ -808,64 +903,17 @@ class:
 
 # How it all fits together
 
-![Event Sourcing Diagram](images/event_sourcing_overview.svg)
+![Event Sourcing Diagram](images/event_sourcing_overview_0.svg)
 
 ???
 
 * A Command is sent
 * The command handler accepts it an generates one or more events
-* These events are stored in the store
+* These events are writen to the store
 * The events are published
-* A Projection subscribes to one or more events and maintains a projection
+* A Projection subscribes to one or more events and maintains it's state
 * Queries read from projections
-* Process managers also subscribe to events
-* And they may feed new commands back into the system
-
-#### Blue: Write-side
-#### Green: Read-side
-
----
-class:
-
-# Process Managers & Transactions
-
-* Coordinates models
-* Can hold state
-* Can crash and be restarted
-* Can involve other systems unlike SQL transactions
-
-???
-
-# Sometimes the system needs to watch over a series of events and commands and react to what it sees.
-
----
-class:
-
-# Process Managers & Transactions
-
-```elixir
-# listen for:
-%Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
-
-# emit:
-%Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
-
-# listen for:
-%Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
-
-# emit:
-%Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
-
-# listen for:
-%Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
-
-# emit:
-%Transfer.Complete{ tx_id: 1, status: :ok }
-```
-
-???
-
-# Here we see an example of coordinating 2 aggregates
+* Process managers also subscribe to events, but may also contribute new events back into the system
 
 ---
 class: middle, center, inverse
@@ -876,12 +924,14 @@ class: middle, center, inverse
 
 # We're going to take a super quick detour here to talk about DDD as many of the things it has to say apply really well to ES/CQRS
 
+There is so much more to say about DDD, but I just want to highlight 1 piece:
+
 ---
 class:
 
 # Aggregate
 
-Basically a domain model, but with a few restrictions.
+Basically a domain model, but with a few restrictions about how it can be accessed.
 
 ---
 class:
@@ -919,8 +969,8 @@ class:
 # Aggregate
 
 * Control access to children
+* Maintain invariants over itself and it's children
 * Provide a transaction boundary
-* Maintain invariants
 * Serialize access with GenServer
 
 ---
@@ -1019,12 +1069,10 @@ class:
 
 
 ```elixir
-date = ~D[2013-08-14]
+unspace = Office.hydrate(until: ~D[2013-08-14])
+unspace.status => :totally_normal
 
-unspace = Office.hydrate(until: date)
-unspace.status => :lounge_mode_in_effect
-
-unspace = unspace |> Office.apply(%PinballRelatedIncidentHappened{})
+unspace = Office.hydrate(until: ~D[2013-08-15])
 unspace.status => :literally_on_fire
 ```
 
@@ -1032,12 +1080,14 @@ unspace.status => :literally_on_fire
 
 # It's easy to see the state of the system at a particular point in history.
 
-# Reports!
+Here we're going back in time to check on the state of the old Unspace office.
+We see here that on the first date, the office was in a fine state, but when we advance the stream to the next day, the office is very much on fire due to a pinball machine related incident.
+
 
 ---
 class:
 
-# Reading from projectsion is fast and simple
+# Reading from Projections is fast and simple
 * Denormalized
 * Joining and Grouping already done
 * Tailored to the each use case
@@ -1113,7 +1163,99 @@ Projections can be used to keep auxilary services in sync:
 ---
 class:
 
-# Read and write sides can be different
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+* Generate markdown and publish those via jekyll/hugo
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+* Generate markdown and publish those via jekyll/hugo
+* Binary blobs (generated images, serialized protobuf, etc)
+
+---
+class:
+
+# Read and write have different implementations
+
+### Read side
+* Denormalized SQL tables
+* NoSQL Documents
+* Search Engine queries
+* GraphDB queries
+* Generate flat text files and serve them statically
+* Generate markdown and publish those via jekyll/hugo
+* Binary blobs (generated images, serialized protobuf, etc)
+* Just keep it in memory - Who needs a disk?
+
+---
+class:
+
+# Read and write have different implementations
 
 ### Read side
 * Denormalized SQL tables
@@ -1130,7 +1272,7 @@ class:
 
 ???
 
-# Projecting datas in this way opens up new possibilies
+# Projecting data in this way opens up new possibilies
 
 ---
 class:
@@ -1143,6 +1285,23 @@ class:
 ???
 
 # Writes are fast and uncomplicated
+
+---
+class:
+
+# Scaling
+
+### Read projections are easy to scale:
+* They depend on a stream of immutable events
+
+---
+class:
+
+# Scaling
+
+### Read projections are easy to scale:
+* They depend on a stream of immutable events
+* Just bring up new instances of the projections
 
 ---
 class:
@@ -1204,7 +1363,6 @@ class:
 * Pretty good fit here.
 * Instead of services querying each other, just tail and emit events.
 * Resilient to upstream outages (they have their own cache)
-* Kafka is popular in the space as a distributed log
 * Eventually consistent anyway...
 
 ???
@@ -1367,16 +1525,45 @@ class:
 class:
 
 # Implementing
-* You can go slow
+* You can introduce ES/CQRS slowly
+
+---
+class:
+
+# Implementing
+* You can introduce ES/CQRS slowly
+* Not an all-or-nothing proposition
+  * Only some models
+
+---
+class:
+
+# Implementing
+* You can introduce ES/CQRS slowly
+* Not an all-or-nothing proposition
+  * Only some models
+* Fire events from traditional setup
+
+---
+class:
+
+# Implementing
+* You can introduce ES/CQRS slowly
+* Not an all-or-nothing proposition
+  * Only some models
+* Fire events from traditional setup
+* Start building out projections
+
+---
+class:
+
+# Implementing
+* You can introduce ES/CQRS slowly
 * Not an all-or-nothing proposition
   * Only some models
 * Fire events from traditional setup
 * Start building out projections
 * Replace reads on old model with reads on projected data once it matches
-
-???
-
-# Implementing ES/CQRS can be daunting but you can go slowly.
 
 ---
 class:
@@ -1404,3 +1591,46 @@ Slides: https://drteeth.github.io/elixir-es-cqrs
 ???
 
 # That's it for me, I hope that gives you a good taste of what ES/CQRS & DDD are about
+
+---
+class:
+
+# Process Managers & Transactions
+
+* Coordinates models
+* Can hold state
+* Can crash and be restarted
+* Can involve other systems unlike SQL transactions
+
+???
+
+# Sometimes the system needs to watch over a series of events and commands and react to what it sees.
+
+---
+class:
+
+# Process Managers & Transactions
+
+```elixir
+# listen for:
+%Transfer.Requested{ tx_id: 1, from: 123, to: 456, amount: 100 }
+
+# emit:
+%Account.Withdraw{ account_id: 123, amount: 100, tx_id: 1 }
+
+# listen for:
+%Account.Withdrew{ account_id: 123, amount: 100, tx_id: 1 }
+
+# emit:
+%Account.Deposit{ account_id: 456, amount: 100, tx_id:1 }
+
+# listen for:
+%Account.Deposited{ account_id: 456, amount: 100, tx_id: 1 }
+
+# emit:
+%Transfer.Complete{ tx_id: 1, status: :ok }
+```
+
+???
+
+# Here we see an example of coordinating 2 aggregates
