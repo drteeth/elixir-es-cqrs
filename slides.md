@@ -18,9 +18,9 @@ class: center, middle
 ???
 
 Hi I’m Ben Moss,
-* I work as a consultant doing Ruby and Android work at moment at bitfield.co.
+* I currently work as a consultant doing Ruby and Android work at my Shop Bitfield.co.
 * I have my sights on Elixir for future work.
-* I've done a lot of things in my past, including c# where a lot of these ideas originated.
+* Yell "mumbling" at me if I mumble.
 
 ---
 class: center, middle
@@ -258,7 +258,7 @@ Generate compensating ones to correct mistakes
 ???
 
 # Simlar to accounting ledgers, events never change.
-# New facts are added the replace older ones.
+# New facts are added that supercede older ones.
 
 ---
 class:
@@ -412,7 +412,6 @@ class:
 
 * Accepts or rejects commands
 * Returns a list of events or an error
-* Must be idempotent
 
 ```elixir
 defmodule AccountHandler do
@@ -439,7 +438,6 @@ end
 
 * Validations - Simple and fast only - No DB/ No Blocking
 * Error or list of events (probably involving the aggregate)
-* Must be idempotent so they can be retried
 
 ---
 class:
@@ -457,13 +455,10 @@ class:
 
 ???
 
-# Projections use events to create your read models.
-
 In the same way that tracking the events for 1 model allows us to build up it's current state, we can also combine the events for several models to derive new information.
 
 We call these projections as they project streams of events into new states.
 
-Talk about how querying the event store would be slow and painful.
 
 ---
 class:
@@ -685,7 +680,7 @@ class:
 
 
 ```elixir
-%CustomerRegistered { customer_id: 1, name: "Lola Gheda" }
+%CustomerRegistered { customer_id: 1, name: "Lola the Dog" }
 %AccountOpened { account_id: 1, customer_id: 1, initial_balance: 100 }
 %Deposited { account_id: 1, amount: 100 }
 
@@ -698,7 +693,7 @@ class:
 ### Customer roll-up
 id | customer_name | balance | status
 -- | ------------- | ------- | --------
-1 | Lola Gheda | $200.00 | Good dog
+1 | Lola the Dog | $200.00 | Is a Good dog
 2 | Mattia Gheda | $0.00 | Broke
 
 ???
@@ -807,7 +802,6 @@ end
 * The events have already happened
 * Emit new commands to compensate
 * Perform side effects
-* Beware of replays and side effects
 
 ---
 class:
